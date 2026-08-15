@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="斗地主教程：7 课慢慢讲，配图和口诀，学完还能做小测验。专为中老年朋友设计。">
+  <title>学规则 · 斗地主学堂</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/learn.css">
+  <script src="../js/theme.js"></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="../index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions">
+      <div id="topbarFontCtrl"></div>
+    </div>
+  </header>
+
+  <nav class="breadcrumb">
+    <a href="../index.html">首页</a> › 学规则
+  </nav>
+
+  <main class="learn-wrap">
+    <h1>📖 学规则</h1>
+    <p class="learn-wrap__sub">一共 7 课，一课时一会儿就看完了。看完一课，点开下一课接着看。</p>
+
+    <div class="home-progress" aria-label="学习进度" style="margin-bottom:1.2em;">
+      <div class="card">
+        <span class="home-progress__label">📚 学习进度</span>
+        <div class="progress-bar" role="progressbar" aria-label="课程完成度" style="margin:.4em 0;">
+          <div class="progress-bar__fill" id="learnProgressFill" style="width:0%"></div>
+        </div>
+        <span class="home-progress__text" id="learnProgressText">还没开始，先看第一课吧</span>
+      </div>
+    </div>
+
+    <nav class="lesson-list" id="lessonList" aria-label="课程列表"></nav>
+
+    <section class="learn-links" aria-label="更多学习内容">
+      <a class="btn btn--ghost" href="reference.html">🀄 牌型图鉴（随时查）</a>
+      <a class="btn btn--accent" href="quiz.html">✍ 小测验（全部课程）</a>
+      <a class="btn" href="sim.html">🎮 模拟小游戏（练一练）</a>
+      <a class="btn btn--ghost" href="../play/practice.html">🧑‍🏫 练习模式（每手讲解）</a>
+    </section>
+  </main>
+
+  <footer style="text-align:center;padding:1.5em;color:var(--text-soft);font-size:.9em;">
+    学完就能玩 · 玩的时候还有「教我」按钮陪着您
+  </footer>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/cards.js"></script>
+  <script src="../js/speak.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/learn.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+    DDZLearn.renderIndex(
+      document.getElementById('lessonList'),
+      document.getElementById('learnProgressText'),
+      document.getElementById('learnProgressFill')
+    );
+  </script>
+</body>
+</html>

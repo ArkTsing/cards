@@ -1,0 +1,223 @@
+/* ==========================================================================
+   home.css — 首页 / 设置页样式（明亮现代·清爽绿）
+   ========================================================================== */
+
+/* ---------- 首页主视觉 ---------- */
+.home-hero {
+  text-align: center;
+  padding: 2.5em 1.2em 1.5em;
+}
+.home-hero__badge {
+  display: inline-block;
+  background: #E3F2E8;
+  color: var(--primary-dark);
+  border-radius: 999px;
+  padding: .3em 1.2em;
+  font-size: .95em;
+  font-weight: 700;
+  margin-bottom: .8em;
+}
+.home-hero h1 {
+  font-size: 2.1em;
+  color: var(--primary-dark);
+  margin: 0 0 .2em;
+}
+.home-hero h1 .suit { color: var(--card-red); }
+.home-hero__sub {
+  font-size: 1.1em;
+  color: var(--text-soft);
+  max-width: 26em;
+  margin: 0 auto;
+}
+
+/* ---------- 首页大入口 ---------- */
+.home-entries {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.4em;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1em 1.2em 2.5em;
+}
+.home-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .6em;
+  background: var(--surface);
+  border-radius: 22px;
+  border: 3px solid transparent;
+  box-shadow: var(--shadow);
+  padding: 2em 1.2em;
+  text-decoration: none;
+  color: var(--text);
+  transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease;
+  min-height: 200px;
+}
+.home-entry:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(20,60,40,.2); }
+.home-entry:active { transform: scale(.98); }
+.home-entry--learn { border-color: #7FBFA4; }
+.home-entry--play { border-color: var(--accent); background: linear-gradient(160deg, #FFF8EA, #FFFFFF); }
+.home-entry--practice { border-color: #9A8FD4; background: linear-gradient(160deg, #F3F0FF, #FFFFFF); }
+.home-entry--settings { border-color: #B9C9C0; }
+.home-entry__icon {
+  font-size: 2.8em;
+  line-height: 1;
+}
+.home-entry__title { font-size: 1.5em; font-weight: 800; }
+.home-entry__desc {
+  font-size: 1em;
+  color: var(--text-soft);
+  text-align: center;
+  margin: 0;
+}
+
+/* ---------- 首页课程进度条 ---------- */
+.home-progress {
+  max-width: 1000px;
+  margin: 0 auto 3em;
+  padding: 0 1.2em;
+}
+.home-progress .card {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  flex-wrap: wrap;
+}
+.home-progress__label { font-weight: 800; white-space: nowrap; }
+.progress-bar {
+  flex: 1;
+  min-width: 160px;
+  height: 16px;
+  background: #E3E9E5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #57B68A);
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+.home-progress__text { font-size: .95em; color: var(--text-soft); white-space: nowrap; }
+
+/* ---------- 首页大按钮（开始游戏 CTA） ---------- */
+.home-cta {
+  text-align: center;
+  padding: 0 1.2em 3em;
+}
+.home-cta .btn { font-size: 1.45em; padding: .8em 2.6em; }
+
+/* ---------- 设置页 ---------- */
+.settings-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1em 1.2em 3em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4em;
+}
+.settings-group .card { display: flex; flex-direction: column; gap: 1em; }
+.settings-group__title {
+  font-size: 1.3em;
+  font-weight: 800;
+  color: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  gap: .5em;
+  margin-bottom: .4em;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  flex-wrap: wrap;
+  padding: .6em 0;
+  border-top: 1px dashed #E0E8E2;
+}
+.settings-row:first-of-type { border-top: none; }
+.settings-row__label { font-weight: 700; }
+.settings-row__hint { display: block; font-size: .88em; color: var(--text-soft); font-weight: 400; margin-top: .2em; }
+
+/* 字号档位选择 */
+.fontsize-levels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .6em;
+}
+.fontsize-level {
+  min-height: 74px;
+  border: 3px solid #D5E0D8;
+  background: #fff;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .2em;
+  padding: .4em;
+  transition: border-color .15s, background .15s;
+}
+.fontsize-level .fs-demo { font-weight: 800; color: var(--text); }
+.fontsize-level .fs-name { font-size: .9em; color: var(--text-soft); }
+.fontsize-level.active {
+  border-color: var(--primary);
+  background: #EAF5EE;
+}
+.fontsize-level.active .fs-name { color: var(--primary-dark); font-weight: 700; }
+.fontsize-preview {
+  background: #F5FAF7;
+  border-radius: 12px;
+  padding: 1em 1.2em;
+  font-size: 1.2em;
+  border: 2px solid #E0EBE3;
+}
+.fontsize-preview .sample { font-weight: 800; }
+
+/* 开关 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 76px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #C4CFC8;
+  border-radius: 999px;
+  transition: background .2s;
+}
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  height: 32px;
+  width: 32px;
+  left: 4px;
+  top: 4px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+.switch input:checked + .slider { background: var(--primary); }
+.switch input:checked + .slider::before { transform: translateX(36px); }
+.switch input:focus-visible + .slider { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* 危险操作 */
+.btn--danger { background: #fff; color: var(--danger); border: 2px solid var(--danger); box-shadow: none; }
+.btn--danger:hover { background: #FDECEC; }
+
+/* 关于 */
+.about-box { font-size: .95em; color: var(--text-soft); line-height: 1.8; }
+
+@media (max-width: 560px) {
+  .fontsize-levels { grid-template-columns: repeat(2, 1fr); }
+  .home-hero h1 { font-size: 1.7em; }
+}

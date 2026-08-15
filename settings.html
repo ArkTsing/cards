@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置 · 斗地主学堂</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/home.css">
+  <script src="js/theme.js"></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions">
+      <div id="topbarFontCtrl"></div>
+    </div>
+  </header>
+
+  <nav class="breadcrumb"><a href="index.html">← 返回首页</a></nav>
+
+  <main class="settings-wrap">
+    <h1 style="color:var(--primary-dark);">⚙️ 设置</h1>
+
+    <section class="settings-group" aria-label="字号设置">
+      <div class="settings-group__title">🔠 字号大小</div>
+      <div class="card">
+        <div class="settings-row">
+          <div class="settings-row__label">选择字号
+            <span class="settings-row__hint">选好后整个网站的字都会变大或变小</span>
+          </div>
+          <div class="fontsize-levels" id="fontsizeLevels" role="radiogroup" aria-label="字号档位">
+            <button type="button" class="fontsize-level" data-level="standard" role="radio" aria-checked="false">
+              <span class="fs-demo" style="font-size:20px">字</span>
+              <span class="fs-name">标准</span>
+            </button>
+            <button type="button" class="fontsize-level" data-level="large" role="radio" aria-checked="false">
+              <span class="fs-demo" style="font-size:23px">字</span>
+              <span class="fs-name">大</span>
+            </button>
+            <button type="button" class="fontsize-level" data-level="xlarge" role="radio" aria-checked="false">
+              <span class="fs-demo" style="font-size:26px">字</span>
+              <span class="fs-name">特大</span>
+            </button>
+            <button type="button" class="fontsize-level" data-level="xxlarge" role="radio" aria-checked="false">
+              <span class="fs-demo" style="font-size:30px">字</span>
+              <span class="fs-name">超大</span>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="fontsize-preview" id="fontsizePreview">
+            <span class="sample">示例文字：</span>今天天气不错，适合打一局斗地主。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-group" aria-label="声音设置">
+      <div class="settings-group__title">🔊 语音朗读</div>
+      <div class="card">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__label">语音提示
+              <span class="settings-row__hint">游戏里会朗读"轮到您了"等提示，帮助看清该做什么</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="voiceSwitch" checked>
+            <span class="slider"></span>
+            <span class="visually-hidden">语音提示开关</span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <button type="button" class="btn btn--ghost" id="voiceTest">🔊 试听一句</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-group" aria-label="学习进度">
+      <div class="settings-group__title">📚 学习进度</div>
+      <div class="card">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__label" id="progressText">课程进度：0 / 7</div>
+            <span class="settings-row__hint">看过的课程会自动打勾</span>
+          </div>
+          <button type="button" class="btn btn--ghost" id="goLearn">去学习</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__label">重置学习进度</div>
+            <span class="settings-row__hint">把课程重新标为"没看过"</span>
+          </div>
+          <button type="button" class="btn btn--danger" id="resetProgress">重置进度</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-group" aria-label="关于">
+      <div class="settings-group__title">ℹ️ 关于本站</div>
+      <div class="card about-box">
+        <p>这是一个完全<b>免费、无广告、无需联网</b>的斗地主学习小站，数据都保存在您自己的电脑里，不会上传到任何地方。</p>
+        <p>牌面素材来自开源卡牌库 SVG Cards（<a href="https://www.npmjs.com/package/svg-cards" target="_blank" rel="noopener">npm: svg-cards</a>），已内置本地，断网可用。</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/speak.js"></script>
+  <script src="js/storage.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+
+    // 字号档位选择
+    var levelsEl = document.getElementById('fontsizeLevels');
+    var previewEl = document.getElementById('fontsizePreview');
+    var current = DDZFont.get();
+
+    function renderLevels() {
+      levelsEl.querySelectorAll('.fontsize-level').forEach(function (btn) {
+        var active = btn.dataset.level === current.key;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+    }
+    levelsEl.querySelectorAll('.fontsize-level').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        current = DDZFont.LEVELS.filter(function (l) { return l.key === btn.dataset.level; })[0];
+        DDZFont.set(current.key);
+        renderLevels();
+      });
+    });
+    renderLevels();
+
+    // 语音开关
+    var voiceSwitch = document.getElementById('voiceSwitch');
+    voiceSwitch.checked = DDZSpeak.isEnabled();
+    voiceSwitch.addEventListener('change', function () {
+      DDZSpeak.setEnabled(voiceSwitch.checked);
+    });
+    document.getElementById('voiceTest').addEventListener('click', function () {
+      DDZSpeak.speak('您听到声音了，说明语音是开着的。欢迎来学斗地主！');
+    });
+
+    // 学习进度
+    var done = DDZStorage.get('learn_done', {});
+    var completed = Object.keys(done).filter(function (k) { return done[k]; }).length;
+    document.getElementById('progressText').textContent = '课程进度：' + completed + ' / 7';
+    document.getElementById('goLearn').addEventListener('click', function () {
+      location.href = 'learn/index.html';
+    });
+    document.getElementById('resetProgress').addEventListener('click', function () {
+      if (confirm('确定要重置学习进度吗？看过的课程会重新标为"没看过"。')) {
+        DDZStorage.set('learn_done', {});
+        document.getElementById('progressText').textContent = '课程进度：0 / 7';
+        alert('学习进度已重置。');
+      }
+    });
+  </script>
+</body>
+</html>

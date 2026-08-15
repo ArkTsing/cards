@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="斗地主牌型图鉴：单牌、对子、三张、顺子、飞机、炸弹、火箭……随时查。">
+  <title>牌型图鉴 · 斗地主学堂</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/learn.css">
+  <script src="../js/theme.js"></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="../index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions"><div id="topbarFontCtrl"></div></div>
+  </header>
+  <nav class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">学规则</a> › 牌型图鉴</nav>
+
+  <main class="learn-wrap">
+    <h1>🀄 牌型图鉴</h1>
+    <p class="learn-wrap__sub">想不起来什么牌型能怎么出，来这里查。每种牌型下面都有一句口诀。</p>
+
+    <div class="card" style="margin-bottom:1.2em;">
+      <p style="margin:0;font-size:1.05em;">
+        <b>大小顺序：</b>3 &lt; 4 &lt; 5 &lt; 6 &lt; 7 &lt; 8 &lt; 9 &lt; 10 &lt; J &lt; Q &lt; K &lt; A &lt; 2 &lt; 小王 &lt; 大王
+      </p>
+    </div>
+
+    <div class="reference-grid" id="refGrid"></div>
+
+    <section class="learn-links" aria-label="返回">
+      <a class="btn" href="index.html">‹ 回课程目录</a>
+      <a class="btn btn--accent" href="../play/index.html">去玩一局 🎮</a>
+    </section>
+  </main>
+
+  <footer style="text-align:center;padding:1.5em;color:var(--text-soft);font-size:.9em;">
+    打牌的时候拿不准，也可以随时点「教我」
+  </footer>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/cards.js"></script>
+  <script src="../js/speak.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/learn.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+    var grid = document.getElementById('refGrid');
+    DDZData.REFERENCE.forEach(function (r) {
+      var card = document.createElement('div');
+      var cls = 'reference-card';
+      if (r.key === 'bomb') cls += ' reference-card--bomb';
+      if (r.key === 'rocket') cls += ' reference-card--rocket';
+      card.className = cls;
+      card.innerHTML =
+        '<div class="reference-card__name">' + r.name + '</div>' +
+        '<div class="reference-card__mnemonic">' + r.mnemonic + '</div>';
+      var demo = DDZLearn.renderCardDemo({ ranks: r.example });
+      demo.classList.remove('card-demo');
+      card.appendChild(demo);
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

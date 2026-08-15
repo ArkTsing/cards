@@ -1,0 +1,263 @@
+/* ==========================================================================
+   base.css — 斗地主教学与单机游戏 · 全局基础样式
+   明亮现代·清爽绿 · 老人友好 · 多档字号
+   ========================================================================== */
+
+/* ---------- 字号变量（多档可调，localStorage 持久化） ---------- */
+:root {
+  --fs-base: 20px;      /* 标准 */
+  --fs-large: 22px;     /* 大 */
+  --fs-xlarge: 24px;    /* 特大 */
+  --fs-xxlarge: 27px;   /* 超大 */
+  --fs: var(--fs-base); /* 当前生效档位，由 JS 切换 */
+}
+
+/* ---------- 配色变量 ---------- */
+:root {
+  --bg: #F2F7F3;              /* 页面底色：浅豆绿白 */
+  --surface: #FFFFFF;         /* 卡片/面板底色 */
+  --text: #1B3A2E;            /* 主文字：深绿黑 */
+  --text-soft: #4A6B5C;       /* 次要文字 */
+  --primary: #2E8B57;         /* 主绿 */
+  --primary-dark: #1B5E3A;    /* 深绿 */
+  --accent: #F5A623;          /* 暖橙：行动号召/高亮 */
+  --accent-dark: #D48A0E;
+  --table-green-top: #2A8F5F; /* 牌桌渐变 */
+  --table-green-bottom: #145C36;
+  --card-red: #C62828;        /* 红牌点数 */
+  --card-black: #1A1A1A;      /* 黑牌点数 */
+  --gold: #D4A017;            /* 王炸/炸弹 */
+  --danger: #C62828;
+  --radius: 14px;
+  --shadow: 0 3px 10px rgba(20, 60, 40, .15);
+  --tap-size: 48px;           /* 最小可点区域 */
+}
+
+/* ---------- 基础 ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "WenQuanYi Micro Hei", sans-serif;
+  font-size: var(--fs);
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { line-height: 1.3; margin: 0 0 .5em; }
+h1 { font-size: 1.7em; }
+h2 { font-size: 1.45em; }
+h3 { font-size: 1.25em; }
+p { margin: 0 0 1em; }
+
+img { max-width: 100%; display: block; }
+a { color: var(--primary-dark); }
+a:hover { color: var(--primary); }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 尊重系统「减少动态效果」 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ---------- 触屏优化 ---------- */
+html {
+  touch-action: manipulation;         /* 消除移动端 300ms 点按延迟 */
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: none) and (pointer: coarse) {
+  /* 触屏设备：点按反馈更即时 */
+  .btn:active { transform: scale(.94); }
+  .home-entry:active { transform: scale(.97); }
+}
+
+/* ---------- 通用组件 ---------- */
+
+/* 大按钮（老人友好） */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5em;
+  min-height: var(--tap-size);
+  padding: .55em 1.5em;
+  font-size: 1.05em;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .08s ease, background .15s ease, box-shadow .15s ease;
+  box-shadow: var(--shadow);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn:active { transform: scale(.96); }
+.btn:disabled { background: #B9C9C0; cursor: not-allowed; box-shadow: none; }
+
+.btn--accent { background: var(--accent); color: #3A2400; }
+.btn--accent:hover { background: var(--accent-dark); }
+.btn--ghost {
+  background: #fff;
+  color: var(--primary-dark);
+  border: 2px solid var(--primary);
+  box-shadow: none;
+}
+.btn--ghost:hover { background: #E7F3EC; }
+.btn--big { font-size: 1.3em; padding: .7em 2em; }
+.btn--block { width: 100%; }
+
+/* 卡片/面板 */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.2em 1.4em;
+}
+
+/* 顶部栏 */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: .7em 1.2em;
+  background: var(--surface);
+  border-bottom: 3px solid var(--primary);
+  box-shadow: 0 2px 8px rgba(20,60,40,.08);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar__brand {
+  font-size: 1.25em;
+  font-weight: 800;
+  color: var(--primary-dark);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar__brand .suit-dot { color: var(--accent); }
+.topbar__actions { display: flex; align-items: center; gap: .6em; }
+
+/* 字号快捷调节 A- / A+ */
+.fontsize-ctrl { display: flex; align-items: center; gap: .35em; }
+.fontsize-ctrl button {
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 1.15em;
+  font-weight: 800;
+  border: 2px solid var(--primary);
+  background: #fff;
+  color: var(--primary-dark);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 0 .5em;
+}
+.fontsize-ctrl button:hover { background: #E7F3EC; }
+.fontsize-ctrl button:disabled { opacity: .4; cursor: default; background: #fff; }
+
+/* 面包屑 */
+.breadcrumb {
+  font-size: .95em;
+  color: var(--text-soft);
+  padding: .6em 1.2em;
+}
+.breadcrumb a { text-decoration: none; color: var(--primary-dark); }
+
+/* 回到顶部按钮 */
+.scroll-top {
+  position: fixed;
+  right: 1em;
+  bottom: 1em;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1.4em;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  display: none;
+  z-index: 40;
+}
+.scroll-top.show { display: block; }
+
+/* 弹窗 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 30, 20, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2em;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+.modal-backdrop.show { opacity: 1; pointer-events: auto; }
+.modal {
+  background: var(--surface);
+  border-radius: 20px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 1.6em;
+  box-shadow: 0 8px 30px rgba(0,0,0,.3);
+}
+.modal__title { font-size: 1.35em; color: var(--primary-dark); margin-bottom: .5em; }
+.modal__actions { display: flex; flex-wrap: wrap; gap: .8em; margin-top: 1.2em; }
+
+/* 语音朗读按钮 */
+.speak-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3em;
+  border: 2px solid var(--primary);
+  background: #fff;
+  color: var(--primary-dark);
+  border-radius: 999px;
+  padding: .3em 1em;
+  font-size: .95em;
+  font-weight: 700;
+  cursor: pointer;
+}
+.speak-btn:hover { background: #E7F3EC; }
+.speak-btn.speaking { background: var(--primary); color: #fff; }
+
+/* 无障碍隐藏文本 */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 640px) {
+  :root { --tap-size: 52px; }
+  .topbar { flex-wrap: wrap; }
+  .modal { padding: 1.2em; }
+}

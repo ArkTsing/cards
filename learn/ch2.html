@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="第1课：认识扑克牌。斗地主教学，专为中老年朋友设计。">
+  <title>第2课 · 认识角色：地主和农民 — 斗地主学堂</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/learn.css">
+  <script src="../js/theme.js"></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body data-chapter="2">
+  <header class="topbar">
+    <a class="topbar__brand" href="../index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions"><div id="topbarFontCtrl"></div></div>
+  </header>
+  <nav class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">学规则</a> › 第2课</nav>
+  <main class="lesson-page" id="lessonMount"></main>
+  <script src="../js/storage.js"></script>
+  <script src="../js/cards.js"></script>
+  <script src="../js/speak.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/learn.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+    var ch = DDZData.CHAPTERS[1];
+    DDZLearn.renderChapter(document.getElementById('lessonMount'), ch);
+    DDZLearn.markDone(2);
+  </script>
+</body>
+</html>

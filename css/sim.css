@@ -1,0 +1,122 @@
+/* ==========================================================================
+   sim.css — 引导式模拟小游戏样式
+   ========================================================================== */
+
+/* 模拟列表（sim.html 首页） */
+.sim-list { display: flex; flex-direction: column; gap: .9em; margin-top: .4em; }
+.sim-card {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1em 1.2em;
+  text-decoration: none;
+  color: inherit;
+  border-left: 6px solid var(--accent);
+  transition: transform .08s ease, box-shadow .15s ease;
+}
+.sim-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(20,60,40,.2); }
+.sim-card__emoji { font-size: 2em; flex-shrink: 0; }
+.sim-card__body { flex: 1; min-width: 0; }
+.sim-card__title { font-size: 1.25em; font-weight: 800; color: var(--primary-dark); }
+.sim-card__sub { font-size: .95em; color: var(--text-soft); margin-top: .15em; }
+.sim-card__go { font-size: 1.8em; color: var(--primary); flex-shrink: 0; }
+
+/* 模拟舞台 */
+.sim-stage {
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 1.4em 1.5em;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.sim-progress {
+  font-size: 1em;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 1em;
+}
+.sim-scene {
+  background: linear-gradient(180deg, var(--table-green-top), var(--table-green-bottom));
+  border-radius: 14px;
+  padding: 1em 1.2em;
+  color: #fff;
+  margin-bottom: 1em;
+}
+.sim-scene__label { font-size: .9em; color: #FFE08A; font-weight: 800; margin-bottom: .3em; }
+.sim-scene__text { font-size: 1.2em; line-height: 1.7; }
+
+.sim-center { text-align: center; margin-bottom: 1em; }
+.sim-center__tag { font-size: .95em; color: var(--text-soft); margin-bottom: .4em; font-weight: 700; }
+
+.sim-hand {
+  background: #F5FAF7;
+  border-radius: 14px;
+  padding: .9em 1em;
+  margin-bottom: 1em;
+}
+.sim-hand__label { font-size: .95em; color: var(--primary-dark); font-weight: 800; margin-bottom: .4em; }
+
+/* 选项大按钮 */
+.sim-options { display: flex; flex-direction: column; gap: .7em; }
+.sim-option {
+  min-height: 60px;
+  font-size: 1.2em;
+  font-weight: 700;
+  padding: .5em 1.2em;
+  border-radius: 14px;
+  border: 2px solid #CBDCD2;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.sim-option:hover { border-color: var(--primary); background: #F2F7F3; }
+.sim-option:active { transform: scale(.98); }
+.sim-option--good {
+  background: #E7F3EC;
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+.sim-option--wrong {
+  background: #FDECEC;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.sim-option:disabled { cursor: default; }
+
+/* 反馈 */
+.sim-feedback { margin-top: 1em; min-height: 2em; }
+.sim-feedback__good {
+  background: #E7F3EC;
+  color: var(--primary-dark);
+  border-radius: 12px;
+  padding: .8em 1em;
+  font-size: 1.1em;
+  line-height: 1.7;
+}
+.sim-feedback__gentle {
+  background: #FFF4E6;
+  color: #6B4E00;
+  border-radius: 12px;
+  padding: .8em 1em;
+  font-size: 1.05em;
+  line-height: 1.7;
+}
+.sim-next { width: 100%; margin-top: .8em; font-size: 1.15em; }
+
+/* 完成 */
+.sim-done { text-align: center; padding: 1em 0; }
+.sim-done__emoji { font-size: 3em; }
+.sim-done__title { font-size: 1.35em; font-weight: 800; color: var(--primary-dark); margin: .4em 0; }
+.sim-done .btn { margin-top: .6em; display: flex; }
+
+@media (max-width: 640px) {
+  .sim-stage { padding: 1em 1em; }
+  .sim-scene__text { font-size: 1.1em; }
+}

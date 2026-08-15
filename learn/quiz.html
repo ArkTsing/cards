@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="斗地主小测验：做完 7 课看完的知识点，大按钮选择，答错也不怕。">
+  <title>小测验 · 斗地主学堂</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/learn.css">
+  <script src="../js/theme.js"></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="../index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions"><div id="topbarFontCtrl"></div></div>
+  </header>
+  <nav class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">学规则</a> › 小测验</nav>
+
+  <main class="quiz-wrap">
+    <div class="quiz-progress" id="quizProgress">准备开始…</div>
+    <div class="quiz-card" id="quizCard"></div>
+  </main>
+
+  <footer style="text-align:center;padding:1.5em;color:var(--text-soft);font-size:.9em;">
+    答错了没关系，看看小提示，再试一次就好
+  </footer>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/cards.js"></script>
+  <script src="../js/speak.js"></script>
+  <script src="../js/data.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+
+    // 支持 ?ch=N 只看某一章，默认全部
+    var params = new URLSearchParams(location.search);
+    var onlyChapter = parseInt(params.get('ch'), 10) || 0;
+
+    var questions = [];
+    DDZData.CHAPTERS.forEach(function (ch) {
+      if (onlyChapter && ch.id !== onlyChapter) return;
+      ch.quiz.forEach(function (q) {
+        questions.push({ chapter: ch.id, chapterTitle: ch.title, q: q.q, options: q.options, answer: q.answer, explain: q.explain });
+      });
+    });
+
+    var idx = 0;
+    var score = 0;
+    var answered = false;
+
+    var card = document.getElementById('quizCard');
+    var progress = document.getElementById('quizProgress');
+
+    function render() {
+      if (idx >= questions.length) {
+        renderDone();
+        return;
+      }
+      var item = questions[idx];
+      answered = false;
+      progress.textContent = '第 ' + (idx + 1) + ' / ' + questions.length + ' 题 · ' + item.chapterTitle;
+      card.innerHTML = '';
+      var q = document.createElement('div');
+      q.className = 'quiz-card__q';
+      q.textContent = item.q;
+      card.appendChild(q);
+
+      var opts = document.createElement('div');
+      opts.className = 'quiz-options';
+      item.options.forEach(function (opt, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'quiz-option';
+        b.textContent = opt;
+        b.addEventListener('click', function () { pick(i, b, opts); });
+        opts.appendChild(b);
+      });
+      card.appendChild(opts);
+    }
+
+    function pick(i, btn, opts) {
+      if (answered) return;
+      answered = true;
+      var item = questions[idx];
+      var btns = opts.querySelectorAll('.quiz-option');
+      var correct = item.answer === i;
+      if (correct) {
+        score++;
+        btn.classList.add('correct');
+        showFeedback(true, item.explain);
+        if (window.DDZSpeak) window.DDZSpeak.speak('答对啦！' + item.explain);
+      } else {
+        btn.classList.add('wrong');
+        btns[item.answer].classList.add('correct');
+        showFeedback(false, item.explain);
+        if (window.DDZSpeak) window.DDZSpeak.speak('再看看提示：' + item.explain);
+      }
+      btns.forEach(function (x) { x.disabled = true; });
+
+      var next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn btn--block quiz-next';
+      next.textContent = (idx + 1 >= questions.length) ? '看结果 🎉' : '下一题 ›';
+      next.addEventListener('click', function () {
+        idx++;
+        render();
+      });
+      card.appendChild(next);
+    }
+
+    function showFeedback(good, explain) {
+      var fb = document.createElement('div');
+      fb.className = 'quiz-feedback show ' + (good ? 'quiz-feedback--good' : 'quiz-feedback--gentle');
+      fb.innerHTML = good
+        ? '<b>答对啦！</b>' + explain
+        : '<b>没关系，再看一眼：</b>' + explain + ' 记住就好，咱们继续。';
+      card.appendChild(fb);
+    }
+
+    function renderDone() {
+      card.innerHTML = '';
+      progress.textContent = '完成！';
+      var total = questions.length;
+      var box = document.createElement('div');
+      box.className = 'quiz-done';
+      var emoji = score === total ? '🏆' : (score >= total / 2 ? '🎉' : '💪');
+      box.innerHTML =
+        '<div class="quiz-done__emoji">' + emoji + '</div>' +
+        '<div class="quiz-done__text">答对 ' + score + ' / ' + total + ' 题</div>' +
+        '<p style="font-size:1.1em;color:var(--text-soft);">' +
+          (score === total ? '太棒了！规则您都掌握啦，去玩一局吧！' : '没关系，答错的题记住提示就好。打打牌练一练，很快就熟了。') +
+        '</p>';
+      var play = document.createElement('a');
+      play.className = 'btn btn--accent btn--big';
+      play.href = '../play/index.html';
+      play.textContent = '🎮 去玩一局';
+      box.appendChild(play);
+      var back = document.createElement('a');
+      back.className = 'btn btn--ghost';
+      back.href = 'index.html';
+      back.textContent = '‹ 回课程目录';
+      back.style.marginTop = '.8em';
+      box.appendChild(back);
+      card.appendChild(box);
+    }
+
+    render();
+  </script>
+</body>
+</html>

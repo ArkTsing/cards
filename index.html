@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="斗地主教学与单机小游戏，专为长辈设计的大字版。看完就会，打开就能玩。">
+  <title>斗地主 · 学一学，玩一玩</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/home.css">
+  <script src="js/theme.js"></script>
+  <style>
+    /* 尽早应用字号，避免闪字 */
+    html { font-size: var(--fs); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions">
+      <div id="topbarFontCtrl"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="home-hero">
+      <span class="home-hero__badge">专为中老年朋友设计 · 大字大按钮</span>
+      <h1>斗地主 <span class="suit">♥</span> 学一学，玩一玩</h1>
+      <p class="home-hero__sub">规则看不懂？没关系。<br>先看看怎么玩，再坐下打两局，慢慢就会了。</p>
+    </section>
+
+    <nav class="home-entries" aria-label="主要功能">
+      <a class="home-entry home-entry--learn" href="learn/index.html">
+        <span class="home-entry__icon" aria-hidden="true">📖</span>
+        <span class="home-entry__title">学规则</span>
+        <span class="home-entry__desc">7 课慢慢讲，配图和口诀，学完还能做小测验</span>
+      </a>
+      <a class="home-entry home-entry--play" href="play/index.html">
+        <span class="home-entry__icon" aria-hidden="true">🂠</span>
+        <span class="home-entry__title">开始游戏</span>
+        <span class="home-entry__desc">两个电脑陪您打，不会了随时点「教我」</span>
+      </a>
+      <a class="home-entry home-entry--practice" href="play/practice.html">
+        <span class="home-entry__icon" aria-hidden="true">🧑‍🏫</span>
+        <span class="home-entry__title">练习模式</span>
+        <span class="home-entry__desc">每手都讲解为什么，学着打最顺手</span>
+      </a>
+      <a class="home-entry home-entry--settings" href="settings.html">
+        <span class="home-entry__icon" aria-hidden="true">⚙️</span>
+        <span class="home-entry__title">设置</span>
+        <span class="home-entry__desc">调字号、开声音、看学习进度</span>
+      </a>
+    </nav>
+
+    <section class="home-progress" aria-label="学习进度">
+      <div class="card">
+        <span class="home-progress__label">📚 学习进度</span>
+        <div class="progress-bar" role="progressbar" aria-label="课程完成度">
+          <div class="progress-bar__fill" id="learnProgressFill" style="width:0%"></div>
+        </div>
+        <span class="home-progress__text" id="learnProgressText">还没开始，先看第一课吧</span>
+      </div>
+    </section>
+
+    <section class="home-cta">
+      <a class="btn btn--accent btn--big" href="play/index.html">🎮 现在就玩一局</a>
+    </section>
+  </main>
+
+  <footer style="text-align:center;padding:1.5em;color:var(--text-soft);font-size:.9em;">
+    纯本地小游戏 · 无需联网 · 断网也能玩
+  </footer>
+
+  <script src="js/storage.js"></script>
+  <script>
+    // 顶栏字号按钮
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+    // 学习进度
+    (function () {
+      var done = DDZStorage.get('learn_done', {});
+      var completed = Object.keys(done).filter(function (k) { return done[k]; }).length;
+      var total = 7;
+      var fill = document.getElementById('learnProgressFill');
+      var text = document.getElementById('learnProgressText');
+      if (completed === 0) {
+        fill.style.width = '0%';
+        text.textContent = '还没开始，先看第一课吧';
+      } else if (completed >= total) {
+        fill.style.width = '100%';
+        text.textContent = '全部学完啦！去玩一局吧 👏';
+      } else {
+        fill.style.width = Math.round(completed / total * 100) + '%';
+        text.textContent = '已完成 ' + completed + ' / ' + total + ' 课';
+      }
+    })();
+  </script>
+</body>
+</html>

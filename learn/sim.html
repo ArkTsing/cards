@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="斗地主引导式模拟小游戏：一步步教您怎么压牌、什么时候炸、农民怎么配合。">
+  <title>模拟小游戏 · 斗地主学堂</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/learn.css">
+  <link rel="stylesheet" href="../css/sim.css">
+  <script src="../js/theme.js"></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="../index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions"><div id="topbarFontCtrl"></div></div>
+  </header>
+  <nav class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">学规则</a> › 模拟小游戏</nav>
+
+  <main class="learn-wrap" id="simMain">
+    <h1 id="simHeading">🎮 引导式模拟小游戏</h1>
+    <p class="learn-wrap__sub" id="simSub">光看还不够，上来练一练！电脑出牌，您来跟。答对会讲解，答错也不怕，点错有提示。</p>
+
+    <!-- 模拟列表（未指定模拟时显示） -->
+    <nav class="sim-list" id="simList" aria-label="模拟小游戏列表"></nav>
+
+    <!-- 模拟舞台（指定模拟时显示） -->
+    <div id="simMount"></div>
+  </main>
+
+  <footer style="text-align:center;padding:1.5em;color:var(--text-soft);font-size:.9em;">
+    答错了没关系，看看提示再来一次
+  </footer>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/cards.js"></script>
+  <script src="../js/speak.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/learn.js"></script>
+  <script src="../js/sim.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+    // 渲染模拟列表
+    var list = document.getElementById('simList');
+    DDZData.SIMS.forEach(function (sim) {
+      var card = document.createElement('a');
+      card.className = 'sim-card';
+      card.href = 'sim.html?sim=' + sim.id;
+      card.setAttribute('aria-label', sim.title);
+      card.innerHTML =
+        '<span class="sim-card__emoji" aria-hidden="true">' + sim.emoji + '</span>' +
+        '<span class="sim-card__body">' +
+          '<span class="sim-card__title">' + sim.title + '</span>' +
+          '<span class="sim-card__sub">' + sim.subtitle + '</span>' +
+        '</span>' +
+        '<span class="sim-card__go" aria-hidden="true">›</span>';
+      list.appendChild(card);
+    });
+
+    // 若 URL 指定了某个模拟，直接进入（隐藏列表，显示舞台）
+    var params = new URLSearchParams(location.search);
+    var simId = params.get('sim');
+    if (simId) {
+      var ok = DDZSim.start(simId);
+      if (ok) {
+        document.getElementById('simList').hidden = true;
+        document.getElementById('simHeading').hidden = true;
+        document.getElementById('simSub').hidden = true;
+      }
+    }
+  </script>
+</body>
+</html>
