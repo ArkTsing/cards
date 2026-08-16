@@ -64,11 +64,13 @@
         row.appendChild(btn);
       });
     } else if (block.compare) {
-      // 比大小演示：上家对 8，下家给可选对子
-      var above = D.ranksToCards([8, 8]);
+      // 比大小演示：默认上家对 8、下家对 9；也可用 above/below 指定具体牌
+      var aboveRanks = block.above || [8, 8];
+      var belowRanks = block.below || [9, 9];
+      var above = D.ranksToCards(aboveRanks);
       above.forEach(function (c) { row.appendChild(miniCardEl(c)); });
-      row.appendChild(arrowEl('⬇'));
-      var below = D.ranksToCards([9, 9]);
+      row.appendChild(arrowEl(block.compareMark || '⬇'));
+      var below = D.ranksToCards(belowRanks);
       below.forEach(function (c) { row.appendChild(miniCardEl(c)); });
     } else if (block.score) {
       row.innerHTML =
@@ -146,7 +148,7 @@
     var header = document.createElement('header');
     header.className = 'lesson-page__header';
     header.innerHTML =
-      '<div class="lesson-page__ch">第 ' + chapter.id + ' 课 / 共 7 课</div>' +
+      '<div class="lesson-page__ch">第 ' + chapter.id + ' 课 / 共 ' + D.totalChapters + ' 课</div>' +
       '<h1 class="lesson-page__title">' + chapter.emoji + ' ' + chapter.title + '</h1>' +
       '<p class="lesson-page__intro">' + chapter.intro + '</p>';
     mount.appendChild(header);
@@ -186,7 +188,7 @@
     prev.href = chapter.id > 1 ? 'ch' + (chapter.id - 1) + '.html' : 'index.html';
     prev.textContent = chapter.id > 1 ? '‹ 上一课' : '‹ 课程目录';
     var next;
-    if (chapter.id < 7) {
+    if (chapter.id < D.totalChapters) {
       next = document.createElement('a');
       next.className = 'btn';
       next.href = 'ch' + (chapter.id + 1) + '.html';
@@ -251,7 +253,7 @@
           '<span class="lesson-card__intro">' + ch.intro + '</span>' +
         '</span>' +
         '<span class="lesson-card__done ' + (isDone ? 'done' : '') + '" aria-hidden="true">' +
-          (isDone ? '✓' : (ch.id + '/7')) +
+          (isDone ? '✓' : (ch.id + '/' + D.totalChapters)) +
         '</span>';
       mount.appendChild(card);
     });

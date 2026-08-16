@@ -14,6 +14,7 @@
   <header class="game-topbar">
     <a class="game-topbar__brand" href="../index.html">🃏 斗地主</a>
     <div class="game-topbar__info">
+      <span class="multiplier-chip" id="deckChip">一副牌</span>
       <span class="multiplier-chip">倍数 <b id="multiplier">1</b></span>
       <span class="multiplier-chip" id="bombChip" hidden>💣 ×0</span>
     </div>
@@ -21,6 +22,12 @@
       <button type="button" class="btn" id="btnSettings" aria-label="设置">⚙️</button>
     </div>
   </header>
+
+  <!-- 底牌条（地主的三张/六张底牌，放在屏幕最顶端） -->
+  <div class="bottom-cards-bar" id="bottomBar" hidden>
+    <span class="bottom-cards-bar__label">🏠 地主底牌</span>
+    <div class="bottom-cards" id="bottomCards"></div>
+  </div>
 
   <!-- 主体：左对手 / 中央牌桌 / 右对手 / 底部玩家 -->
   <div class="game-body">
@@ -34,14 +41,23 @@
       </div>
       <div class="opponent-cards" id="oppLeftCards"></div>
       <div class="opponent-count" id="oppLeftCount">17 张</div>
-      <div class="ai-last-play-tag" id="oppLeftLast" hidden></div>
     </section>
 
     <!-- 桌面中央 -->
     <section class="center-zone">
       <div class="center-zone__status" id="statusText" role="status" aria-live="polite">准备开始…</div>
       <div class="center-cards" id="centerCards"></div>
-      <div class="bottom-cards" id="bottomCards" hidden></div>
+      <!-- 上下家出的牌同时显示在牌桌上 -->
+      <div class="ai-table-row">
+        <div class="play-slot play-slot--left" id="playSlot0">
+          <span class="play-slot__tag" id="playTag0" hidden></span>
+          <div class="play-slot__cards" id="playCards0"></div>
+        </div>
+        <div class="play-slot play-slot--right" id="playSlot1">
+          <span class="play-slot__tag" id="playTag1" hidden></span>
+          <div class="play-slot__cards" id="playCards1"></div>
+        </div>
+      </div>
     </section>
 
     <!-- 右对手（电脑2 老王） -->
@@ -53,7 +69,6 @@
       </div>
       <div class="opponent-cards" id="oppRightCards"></div>
       <div class="opponent-count" id="oppRightCount">17 张</div>
-      <div class="ai-last-play-tag" id="oppRightLast" hidden></div>
     </section>
 
     <!-- 玩家自己 -->
@@ -102,10 +117,11 @@
 
       var humanSeat = 2; // 0=左(上家), 1=右(下家), 2=自己
       var game = null;
-      var selected = {};   // 玩家选中的牌 id 集合
+      var selected = {};   // 玩家选中的牌 id 集合（两副牌时用 uid）
       var thinking = false;
       var inRound = false;
       var difficulty = DDZStorage.get('difficulty', 'normal');
+      var nDeck = DDZStorage.get('deck', 1);   // 1=一副牌 2=两副牌
 
       // 座位显示名
       var seatNames = { 0: '阿强', 1: '老王', 2: '您' };
@@ -133,11 +149,13 @@
 
       function $(id) { return document.getElementById(id); }
       var elStatus = $('statusText'), elCenter = $('centerCards'),
-          elBottom = $('bottomCards'), elPlayerHand = $('playerHand'),
+          elBottom = $('bottomCards'), elBottomBar = $('bottomBar'),
+          elPlayCards0 = $('playCards0'), elPlayTag0 = $('playTag0'),
+          elPlayCards1 = $('playCards1'), elPlayTag1 = $('playTag1'),
+          elPlayerHand = $('playerHand'),
           elLeftCards = $('oppLeftCards'), elRightCards = $('oppRightCards'),
           elLeftCount = $('oppLeftCount'), elRightCount = $('oppRightCount'),
-          elLeftLast = $('oppLeftLast'), elRightLast = $('oppRightLast'),
-          elMulti = $('multiplier'), elBombChip = $('bombChip'),
+          elMulti = $('multiplier'), elBombChip = $('bombChip'), elDeckChip = $('deckChip'),
           elBtnPlay = $('btnPlay'), elBtnPass = $('btnPass'), elBtnHint = $('btnHint'),
           elPlayerCount = $('playerCount'), elPlayerRole = $('playerRole'),
           elLeftRole = $('oppLeftRole'), elRightRole = $('oppRightRole'),
@@ -145,6 +163,10 @@
 
       /* ---------- 节奏控制：语音播完 + 最短停顿，才走下一步 ---------- */
       // 保证"前一句话没说完，后一句话不会抢着出来"
+      // 老人友好：AI 出手刻意放慢，留足看清牌的时间
+      var AI_BID_DELAY = 1700;     // 电脑叫分前"思考"时间
+      var AI_THINK_DELAY = 1700;   // 轮到电脑出牌前"思考"时间
+      var HOLD_DELAY = 1500;       // 每次出牌后到下一位动作的停顿
       function step(text, minDelay, fn) {
         var fired = false;
         function go() {
@@ -158,21 +180,77 @@
       }
 
       /* ---------- 新对局 ---------- */
+
+      /* 发牌动画：牌从上方"飞"到自己位置上（Web Animations API）
+         一张接一张，像真的在发牌；尊重系统"减少动态效果"设置 */
+      function animateDeal() {
+        var els = elPlayerHand.querySelectorAll('.poker-card');
+        var n = els.length;
+        if (!n) return;
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var supports = typeof els[0].animate === 'function';
+        if (!supports) {
+          // 兜底：老浏览器用 CSS 淡入
+          elPlayerHand.classList.remove('dealing');
+          void elPlayerHand.offsetWidth;
+          elPlayerHand.classList.add('dealing');
+          return;
+        }
+        var fromY = Math.round(window.innerHeight * 0.55);
+        els.forEach(function (el, i) {
+          if (reduce) {
+            el.animate(
+              [{ opacity: 0 }, { opacity: 1 }],
+              { duration: 300, delay: i * 18, fill: 'backwards', easing: 'ease-out' }
+            );
+          } else {
+            var final = getComputedStyle(el).transform;
+            el.animate(
+              [{ transform: 'translate(0, -' + fromY + 'px) scale(.72)', opacity: 0 },
+               { transform: final, opacity: 1 }],
+              { duration: 420, delay: 80 + i * 26, fill: 'backwards', easing: 'ease-out' }
+            );
+          }
+        });
+        // 电脑手牌（牌背）从上方淡入
+        [elLeftCards, elRightCards].forEach(function (cont) {
+          var backs = cont.querySelectorAll('.poker-card');
+          backs.forEach(function (el, i) {
+            if (typeof el.animate !== 'function') return;
+            el.animate(
+              [{ opacity: 0, transform: 'translateY(-24px)' }, { opacity: 1, transform: 'none' }],
+              { duration: 320, delay: 60 + i * 14, fill: 'backwards', easing: 'ease-out' }
+            );
+          });
+        });
+        // 底牌淡入（若已显示）
+        if (elBottomBar && !elBottomBar.hidden) {
+          var bcs = elBottom.querySelectorAll('.poker-card');
+          bcs.forEach(function (el, i) {
+            if (typeof el.animate !== 'function') return;
+            el.animate(
+              [{ opacity: 0, transform: 'translateY(-18px)' }, { opacity: 1, transform: 'none' }],
+              { duration: 300, delay: 100 + i * 40, fill: 'backwards', easing: 'ease-out' }
+            );
+          });
+        }
+      }
+
       function newGame() {
         newSeeds();
-        game = G.createGame({ difficulty: difficulty, humanSeat: humanSeat });
+        nDeck = DDZStorage.get('deck', 1);   // 每次开局读取最新选择
+        game = G.createGame({ difficulty: difficulty, humanSeat: humanSeat, nDeck: nDeck });
+        elDeckChip.textContent = nDeck === 2 ? '两副牌' : '一副牌';
         selected = {};
         thinking = false;
         inRound = true;
         updateAll();
         var st = G.getState(game);
         // 发牌动画
-        elPlayerHand.classList.remove('dealing');
-        void elPlayerHand.offsetWidth;
-        elPlayerHand.classList.add('dealing');
+        animateDeal();
         // 若叫分先轮到电脑，让电脑先叫
         if (st.currentBidder !== humanSeat) {
-          setTimeout(aiBid, 1200);
+          setTimeout(aiBid, AI_BID_DELAY);
         } else {
           showBidPanel();
         }
@@ -211,26 +289,18 @@
         elPlayerCount.textContent = humanHand.length;
         renderPlayerHand(humanHand);
 
-        // 桌面中央
-        if (st.lastPlay && st.lastPlay.seat !== -1) {
-          var desc = C.describe(st.lastPlay.ranks);
-          UI.renderCenter(elCenter, st.lastPlay.cards, desc);
-        } else {
-          UI.renderCenter(elCenter, [], null);
-        }
+        // 桌面中央：上下家出的牌同时显示（左=上家、右=下家），您出的牌在正中
+        renderAiSlots(st);
 
-        // 电脑刚出牌的小标签
-        renderAiLastTag(st);
-
-        // 底牌
+        // 底牌条（屏幕最顶端）
         if (st.phase !== 'bidding' && st.landlord !== -1) {
-          elBottom.hidden = false;
+          elBottomBar.hidden = false;
           elBottom.innerHTML = '';
           st.bottom.forEach(function (c) {
             elBottom.appendChild(UI.cardEl(c, {}));
           });
         } else {
-          elBottom.hidden = true;
+          elBottomBar.hidden = true;
         }
 
         // 出牌按钮状态
@@ -255,19 +325,44 @@
         elStatus.classList.add('fade-swap');
       }
 
-      // 电脑刚出牌的小标签
-      function renderAiLastTag(st) {
-        elLeftLast.hidden = true;
-        elRightLast.hidden = true;
-        if (st.phase === 'playing' && st.lastPlay && st.lastPlay.seat !== -1) {
-          var tag = C.describe(st.lastPlay.ranks);
-          if (st.lastPlay.seat === 0) {
-            elLeftLast.textContent = tag;
-            elLeftLast.hidden = false;
-          } else if (st.lastPlay.seat === 1) {
-            elRightLast.textContent = tag;
-            elRightLast.hidden = false;
+      // 上下家（座位0/1）刚出的牌，同时显示在牌桌上
+      // 座位2（您自己）的牌显示在正中 centerCards
+      function renderAiSlots(st) {
+        var slots = [
+          { seat: 0, elCards: elPlayCards0, elTag: elPlayTag0 },
+          { seat: 1, elCards: elPlayCards1, elTag: elPlayTag1 }
+        ];
+        slots.forEach(function (s) {
+          var lp = st.lastPlays && st.lastPlays[s.seat];
+          if (st.phase === 'playing' && lp) {
+            if (lp.parsed) {
+              // 出了牌：显示牌面 + 小标签
+              s.elCards.innerHTML = '';
+              lp.cards.forEach(function (c) {
+                var el = UI.cardEl(c, {});
+                el.classList.add('poker-card--center');
+                s.elCards.appendChild(el);
+              });
+              s.elTag.textContent = C.describe(lp.ranks, nDeck);
+              s.elTag.hidden = false;
+            } else {
+              // 不要
+              s.elCards.innerHTML = '';
+              s.elTag.textContent = '不要';
+              s.elTag.hidden = false;
+            }
+          } else {
+            s.elCards.innerHTML = '';
+            s.elTag.hidden = true;
           }
+        });
+
+        // 正中央：显示您自己最近出的牌（上下家的牌在左右两个牌位上）
+        var myLp = st.lastPlays && st.lastPlays[humanSeat];
+        if (st.phase === 'playing' && myLp && myLp.parsed) {
+          UI.renderCenter(elCenter, myLp.cards, C.describe(myLp.ranks, nDeck));
+        } else {
+          UI.renderCenter(elCenter, [], null);
         }
       }
 
@@ -319,10 +414,10 @@
           if (h > maxH) continue;                       // 牌太高：收窄
           var sliver = Math.min(FAN_MAX_SLIVER, (availW - cw) / Math.max(1, n - 1));
           if (sliver < FAN_MIN_SLIVER) sliver = Math.max(2, sliver);
-          var rotateExtra = 2.6 * h * Math.sin(desiredRad);
-          var span = cw + (n - 1) * sliver + rotateExtra;
-          if (span <= availW && sliver >= 2) {
-            var slack = availW - (cw + (n - 1) * sliver);
+          // 只用"底宽"判断是否能放下：牌越多（两副牌34张）时不再被理想扇角卡死
+          var base = cw + (n - 1) * sliver;
+          if (base <= availW && sliver >= 2) {
+            var slack = availW - base;
             var maxRad = Math.min(desiredRad, Math.max(0, slack / (2.6 * h)));
             var stepAngle = n > 1 ? (maxRad * 180 / Math.PI) / ((n - 1) / 2) : 0;
             stepAngle = Math.min(stepAngle, 3.4);
@@ -332,7 +427,9 @@
         // 兜底：最窄，且牌高不超高
         var cw2 = minW, h2 = cw2 * 1.447;
         if (h2 > maxH) { h2 = maxH; cw2 = maxH / 1.447; }
-        var sliver2 = Math.max(2, (availW - cw2 - 2.6 * h2 * Math.sin(2 * Math.PI / 180)) / Math.max(1, n - 1));
+        var sliver2 = (availW - cw2 - 2.6 * h2 * Math.sin(2 * Math.PI / 180)) / Math.max(1, n - 1);
+        if (sliver2 < 1) sliver2 = 1;       // 极窄兜底：至少露 1px，保证不横向溢出
+        if (sliver2 > FAN_MIN_SLIVER) sliver2 = FAN_MIN_SLIVER;
         return { w: Math.round(cw2), h: Math.round(h2), sliver: sliver2, stepAngle: 0 };
       }
 
@@ -414,12 +511,26 @@
                  + (parseFloat(getComputedStyle(bodyEl).borderTopWidth || 0) || 0) + (parseFloat(getComputedStyle(bodyEl).borderBottomWidth || 0) || 0);
         }
         if (zone) {
-          fixedH += (parseFloat(getComputedStyle(zone).paddingTop || 0) || 0) + (parseFloat(getComputedStyle(zone).paddingBottom || 0) || 0);
+          var zonePadTop = parseFloat(getComputedStyle(zone).paddingTop || 0) || 0;
+          var zonePadBottom = parseFloat(getComputedStyle(zone).paddingBottom || 0) || 0;
+          fixedH += zonePadTop + zonePadBottom;
           var gapPx = parseFloat(getComputedStyle(zone).gap || 0) || 0;
           var kids = zone.children;
           for (var k = 0; k < kids.length; k++) {
             var kid = kids[k];
             if (kid === elPlayerHand) continue;
+            // 一体化布局里信息条/按钮是绝对定位，不占文档流高度，不重复计算
+            var kidPos = getComputedStyle(kid).position || '';
+            if (kidPos === 'absolute' || kidPos === 'fixed') {
+              // 绝对定位子项（信息条在上、按钮在下）：若实际高度超过 zone 为此预留的 padding，
+              // 超出部分也计入固定高度，避免两副牌按钮换行变高后盖住手牌
+              var absCs = getComputedStyle(kid);
+              var kh = kid.offsetHeight || 0;
+              var anchoredBottom = absCs.top === 'auto' && absCs.bottom !== 'auto';
+              var reserve = anchoredBottom ? zonePadBottom : zonePadTop;
+              if (kh > reserve) fixedH += (kh - reserve);
+              continue;
+            }
             fixedH += (kid.offsetHeight || 0) + gapPx;
           }
         }
@@ -462,7 +573,7 @@
             corner.style.fontSize = Math.round(fit.w * 0.3) + 'px';
             corner.style.lineHeight = '1';
           }
-          el.classList.toggle('selected', !!selected[card.id]);
+          el.classList.toggle('selected', !!selected[card.uid]);
           // 鼠标悬停放大突出（仅支持悬停的设备）
           if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
             el.addEventListener('mouseenter', function () {
@@ -508,11 +619,11 @@
           el.addEventListener('click', function () {
             if (touchMoved) { touchMoved = false; return; }   // 滑动后抑制 click 误触
             if (!isPlayerTurn() || thinking) return;
-            if (selected[card.id]) {
-              delete selected[card.id];
+            if (selected[card.uid]) {
+              delete selected[card.uid];
               el.classList.remove('selected');
             } else {
-              selected[card.id] = true;
+              selected[card.uid] = true;
               el.classList.add('selected');
             }
             layoutCards();       // 两侧牌平滑让开，选中牌放大
@@ -530,10 +641,38 @@
       }
 
       function selectedRanks() {
-        var ids = Object.keys(selected);
         var st = G.getState(game);
-        var cards = st.hands[humanSeat].filter(function (c) { return selected[c.id]; });
+        var cards = st.hands[humanSeat].filter(function (c) { return selected[c.uid]; });
         return cards.map(function (c) { return c.rank; }).sort(function (a, b) { return a - b; });
+      }
+
+      function clearSelection() {
+        selected = {};
+        var els = elPlayerHand.querySelectorAll('.poker-card.selected');
+        els.forEach(function (el) { el.classList.remove('selected'); });
+        layoutCards();
+        updatePlayButton();
+      }
+
+      function hasSelection() { return Object.keys(selected).length > 0; }
+
+      // 点击空白桌面 → 一键取消所有选中的牌
+      // "空白" = 不是牌、不是按钮、不在对手区/顶栏/底牌条/弹窗里的地方
+      function bindDeselectOnEmpty() {
+        var body = document.querySelector('.game-body');
+        if (!body) return;
+        body.addEventListener('click', function (e) {
+          if (thinking) return;
+          var t = e.target;
+          if (!t || !t.closest) return;
+          if (t.closest('.poker-card, .btn, .bid-panel, .coach-fab, .opponent-zone, .game-topbar, .bottom-cards-bar, .modal-backdrop')) {
+            return;
+          }
+          if (hasSelection()) {
+            UI.toast('已取消选中的牌');
+            clearSelection();
+          }
+        }, true);
       }
 
       function enablePlayButtons(st) {
@@ -572,7 +711,7 @@
         if (!isPlayerTurn() || thinking) return;
         var ranks = selectedRanks();
         if (!ranks.length) return;
-        var parsed = C.parseCards(ranks);
+        var parsed = C.parseCards(ranks, nDeck);
         if (!parsed) {
           UI.shake(elPlayerHand);
           UI.toast('这样出不符合规则，请重新选牌');
@@ -601,8 +740,8 @@
       });
 
       function afterHumanPlay(ranks, res) {
-        var parsed = C.parseCards(ranks);
-        var desc = C.describe(ranks);
+        var parsed = C.parseCards(ranks, nDeck);
+        var desc = C.describe(ranks, nDeck);
         thinking = true;
         updateAll();
         var msg;
@@ -612,9 +751,9 @@
           msg = '您出' + desc;
         }
         UI.toast(msg);
-        step(msg, 700, function () {
+        step(msg, 800, function () {
           if (res.finished) return showResult(res);
-          scheduleNext(1200);
+          scheduleNext(HOLD_DELAY);
         });
       }
 
@@ -622,9 +761,9 @@
         thinking = true;
         UI.toast('您选择"不要"。');
         updateAll();
-        step('您选择不要', 700, function () {
+        step('您选择不要', 800, function () {
           if (res.finished) return showResult(res);
-          scheduleNext(1200);
+          scheduleNext(HOLD_DELAY);
         });
       }
 
@@ -637,7 +776,7 @@
         }
         var st = G.getState(game);
         var seat = st.currentBidder;
-        var r = AI.decideBid(st.handRanks[seat], difficulty, seat, st.highestBid);
+        var r = AI.decideBid(st.handRanks[seat], difficulty, seat, st.highestBid, nDeck);
         var res = G.placeBid(game, r.bid);
         if (!res.ok) { console.error('aiBid 失败', res); return; }
         var who = seatFull[seat];
@@ -655,7 +794,7 @@
           updateAll();
           if (res.restart) { scheduleNewGame(); return; }
           if (res.finished) { startPlaying(res); return; }
-          setTimeout(aiBid, 1000);
+          setTimeout(aiBid, AI_BID_DELAY);
         }
       }
 
@@ -705,7 +844,7 @@
           return;
         }
         updateAll();
-        setTimeout(aiBid, 1000);
+        setTimeout(aiBid, AI_BID_DELAY);
       }
 
       function startPlaying(res) {
@@ -717,7 +856,7 @@
           enablePlayButtons(G.getState(game));
         } else {
           UI.toast(seatFull[landlord] + ' 成为地主。');
-          scheduleNext(1300);
+          scheduleNext(1500);
         }
       }
 
@@ -731,7 +870,7 @@
               thinking = false;
               enablePlayButtons(G.getState(game));
             }
-          }, 500);
+          }, 600);
           return;
         }
         setTimeout(function () { aiPlay(); }, delay);
@@ -755,7 +894,8 @@
           difficulty: difficulty,
           playerCounts: st.handRanks.map(function (h) { return h.length; }),
           teammateLastCount: st.lastPlaySeat >= 0 ? st.handRanks[st.lastPlaySeat].length : null,
-          seatRng: seatRngs[seat]   // 每个座位不同的随机打法
+          seatRng: seatRngs[seat],   // 每个座位不同的随机打法
+          nDeck: nDeck
         };
         var play = AI.decidePlay(ctx);
         var res = G.playCards(game, seat, play);
@@ -765,24 +905,24 @@
         if (play === null) {
           msg = who + '：不要。';
           UI.toast(msg);
-          step(who + '不要', 800, afterAi);
+          step(who + '不要', 1000, afterAi);
         } else {
-          var parsed = C.parseCards(play);
-          var desc = C.describe(play);
+          var parsed = C.parseCards(play, nDeck);
+          var desc = C.describe(play, nDeck);
           if (parsed.type === 'bomb' || parsed.type === 'rocket') {
             msg = who + '：' + desc + '！倍数翻倍';
             UI.toast(msg);
-            step(who + '打出了' + desc + '，倍数翻倍', 1000, afterAi);
+            step(who + '打出了' + desc + '，倍数翻倍', 1200, afterAi);
           } else {
             msg = who + '：' + desc;
             UI.toast(msg);
-            step(who + '出' + desc, 900, afterAi);
+            step(who + '出' + desc, 1100, afterAi);
           }
         }
         function afterAi() {
           updateAll();
           if (res.finished) return showResult(res);
-          scheduleNext(1200);
+          scheduleNext(HOLD_DELAY);
         }
       }
 
@@ -836,7 +976,7 @@
       function showHint() {
         var st = G.getState(game);
         if (st.phase === 'bidding' && st.currentBidder === humanSeat) {
-          var s = Hint.suggestBid(st.handRanks[humanSeat], st.highestBid);
+          var s = Hint.suggestBid(st.handRanks[humanSeat], st.highestBid, nDeck);
           UI.modal({ title: s.title, body: '<div class="hint-body"><div class="hint-body__title">叫分建议</div><div class="hint-body__text">' + s.text + '</div></div>' });
           return;
         }
@@ -850,7 +990,8 @@
           lastPlay: st.lastPlayRanks,
           lastSeat: st.lastPlaySeat,
           myIndex: humanSeat,
-          roles: st.roles
+          roles: st.roles,
+          nDeck: nDeck
         };
         // 多套建议：主推 + 备选
         var sugs = Hint.suggestMultiple(ctx, 3);
@@ -903,7 +1044,7 @@
         hand2.forEach(function (card) {
           var idx = want2.indexOf(card.rank);
           if (idx >= 0) {
-            selected[card.id] = true;
+            selected[card.uid] = true;
             want2.splice(idx, 1);
           }
         });
@@ -977,6 +1118,7 @@
       });
 
       // 开始
+      bindDeselectOnEmpty();
       newGame();
     })();
   </script>

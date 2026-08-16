@@ -14,12 +14,14 @@
   var BASE_SCORE = 1;
 
   // 创建新对局
+  // opts.nDeck: 1（一副，54张）| 2（两副，108张，每手34张+6底牌）
   function createGame(opts) {
     opts = opts || {};
     var difficulty = opts.difficulty || 'normal';
     var humanSeat = opts.humanSeat || 2;   // 0/1 为电脑，2 为真人（下方）
+    var nDeck = opts.nDeck === 2 ? 2 : 1;
 
-    var d = C.deal();
+    var d = C.deal(nDeck);
     // hands: 3 个「牌对象」数组（降序）；ranks 方法供逻辑使用
     var hands = d.hands.map(function (h) { return h.sort(cmpDescObj); });
     var bottom = d.bottom.sort(cmpDescObj);
@@ -28,8 +30,11 @@
       phase: 'bidding',        // bidding | playing | ended
       difficulty: difficulty,
       humanSeat: humanSeat,
+      nDeck: nDeck,
+      perHand: d.perHand,
+      bottomCount: d.bottomCount,
       hands: hands,            // 3 个牌对象数组（降序）
-      bottom: bottom,          // 3 张底牌（牌对象）
+      bottom: bottom,          // 底牌（牌对象）：1副3张 / 2副6张
       roles: ['farmer', 'farmer', 'farmer'],   // 初始都是农民，选出地主后改
       landlord: -1,
       bidValue: 0,
@@ -39,7 +44,8 @@
       passes: 0,               // 连续 pass 数（叫分阶段用）
       // 出牌阶段
       currentPlayer: -1,
-      lastPlay: null,          // { cards: 牌对象[], ranks, seat, parsed }
+      lastPlay: null,          // 当前"必须压"的基准牌 { cards, ranks, seat, parsed }
+      lastPlays: [],           // 最近一圈各家出的牌（按座位索引 0/1/2），同时显示用
       passStreak: 0,
       bombs: 0,
       spring: false,           // 春天（结算时判断）
@@ -112,6 +118,7 @@
       // 不要
       if (game.lastPlay && game.lastPlay.seat !== seat) {
         game.passStreak++;
+        recordLastPlay(game, seat, null);
         game.log.push({ seat: seat, type: 'pass' });
         return advance(game, seat, null);
       }
@@ -125,10 +132,10 @@
     var handIsCards = hand.length && typeof hand[0] === 'object';
     var pool = hand.slice();
     if (isCards) {
-      // 传入牌对象：按 id 匹配
+      // 传入牌对象：按 uid（优先）/ id 匹配
       given.forEach(function (c) {
         for (var i = 0; i < pool.length; i++) {
-          if (pool[i].id === c.id) { cards.push(pool[i]); pool.splice(i, 1); break; }
+          if (pool[i].uid === c.uid || (pool[i].uid == null && pool[i].id === c.id)) { cards.push(pool[i]); pool.splice(i, 1); break; }
         }
       });
     } else {
@@ -143,13 +150,14 @@
       return { ok: false, msg: '这张牌不在您手里' };
     }
     var ranksSorted = cards.map(rankOf).sort(cmpDesc);
+    var nDeck = game.nDeck === 2 ? 2 : 1;
 
-    var parsed = C.parseCards(ranksSorted);
+    var parsed = C.parseCards(ranksSorted, nDeck);
     if (!parsed) return { ok: false, msg: '这不是一个合法的出牌' };
 
     // 校验能压过上家
     if (game.lastPlay && game.lastPlay.seat !== seat) {
-      if (!C.canBeat(parsed, C.parseCards(game.lastPlay.ranks))) {
+      if (!C.canBeat(parsed, C.parseCards(game.lastPlay.ranks, nDeck), nDeck)) {
         return { ok: false, msg: '压不过上家，要选"不要"哦' };
       }
     }
@@ -161,6 +169,7 @@
       game.multiplier *= 2;
     }
     game.lastPlay = { cards: cards.slice(), ranks: ranksSorted, seat: seat, parsed: parsed };
+    recordLastPlay(game, seat, { cards: cards.slice(), ranks: ranksSorted, parsed: parsed });
     game.passStreak = 0;
     game.log.push({ seat: seat, type: 'play', cards: cards.slice(), ranks: ranksSorted });
 
@@ -172,6 +181,20 @@
     return advance(game, seat, parsed);
   }
 
+  // 记录这一家最近一次出的牌（null 表示"不要"），供牌桌同时显示左右两家的牌
+  function recordLastPlay(game, seat, play) {
+    if (!Array.isArray(game.lastPlays)) game.lastPlays = [];
+    if (play === null) {
+      game.lastPlays[seat] = null;
+    } else {
+      game.lastPlays[seat] = {
+        cards: (play.cards || []).slice(),
+        ranks: (play.ranks || []).slice(),
+        parsed: play.parsed || null
+      };
+    }
+  }
+
   function makeErr(msg) { var e = new Error(msg); e.isExpected = true; return e; }
 
   function advance(game, seat, parsed) {
@@ -180,6 +203,8 @@
     if (game.passStreak >= 2) {
       game.lastPlay = null;
       game.passStreak = 0;
+      // 新的一圈开始：清掉牌桌上的各家牌，重新累积
+      game.lastPlays = [];
     }
     return {
       ok: true,
@@ -248,6 +273,7 @@
       bottomRanks: ranksOf(game.bottom),
       roles: game.roles,
       landlord: game.landlord,
+      nDeck: game.nDeck || 1,
       currentPlayer: game.currentPlayer,
       currentBidder: game.currentBidder,
       highestBid: game.highestBid,
@@ -255,6 +281,7 @@
       lastPlay: game.lastPlay,
       lastPlayRanks: game.lastPlay ? game.lastPlay.ranks : null,
       lastPlaySeat: game.lastPlay ? game.lastPlay.seat : -1,
+      lastPlays: game.lastPlays || [],   // 牌桌各家牌：lastPlays[0/1/2] = {cards,ranks,parsed} | null(不要)
       multiplier: game.multiplier,
       bombs: game.bombs,
       humanSeat: game.humanSeat,

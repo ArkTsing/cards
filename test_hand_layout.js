@@ -12,10 +12,9 @@ function fitHand(n, availW, availH, fs) {
     if (h > maxH) continue;
     var sliver = Math.min(FAN_MAX_SLIVER, (availW - cw) / Math.max(1, n - 1));
     if (sliver < FAN_MIN_SLIVER) sliver = Math.max(2, sliver);
-    var rotateExtra = 2.6 * h * Math.sin(desiredRad);
-    var span = cw + (n - 1) * sliver + rotateExtra;
-    if (span <= availW && sliver >= 2) {
-      var slack = availW - (cw + (n - 1) * sliver);
+    var base = cw + (n - 1) * sliver;
+    if (base <= availW && sliver >= 2) {
+      var slack = availW - base;
       var maxRad = Math.min(desiredRad, Math.max(0, slack / (2.6 * h)));
       var stepAngle = n > 1 ? (maxRad * 180 / Math.PI) / ((n - 1) / 2) : 0;
       stepAngle = Math.min(stepAngle, 3.4);
@@ -24,7 +23,9 @@ function fitHand(n, availW, availH, fs) {
   }
   var cw2 = minW, h2 = minW * 1.447;
   if (h2 > maxH) { h2 = maxH; cw2 = maxH / 1.447; }
-  var sliver2 = Math.max(2, (availW - cw2 - 2.6 * h2 * Math.sin(2 * Math.PI / 180)) / Math.max(1, n - 1));
+  var sliver2 = (availW - cw2 - 2.6 * h2 * Math.sin(2 * Math.PI / 180)) / Math.max(1, n - 1);
+  if (sliver2 < 1) sliver2 = 1;
+  if (sliver2 > FAN_MIN_SLIVER) sliver2 = FAN_MIN_SLIVER;
   return { w: Math.round(cw2), h: Math.round(h2), sliver: sliver2, stepAngle: 0 };
 }
 function actualSpan(fit, n) {
@@ -49,7 +50,7 @@ var fail = 0, pass = 0, scrollNeeded = 0;
 var widths = [240, 320, 480, 640, 800, 960, 1024, 1280, 1440, 1920];
 var heights = [300, 400, 480, 560, 640, 700, 800, 900, 1080];
 var fss = [20, 22, 24, 27];
-var counts = [1, 5, 10, 14, 17, 20];
+var counts = [1, 5, 10, 14, 17, 20, 34, 40];
 var examples = [];
 for (var isP = 0; isP < 2; isP++) {
   for (var wi = 0; wi < widths.length; wi++) {

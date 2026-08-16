@@ -109,6 +109,52 @@
 }
 .home-cta .btn { font-size: 1.45em; padding: .8em 2.6em; }
 
+/* ---------- 牌数选择（一副牌 / 两副牌） ---------- */
+.home-deck {
+  text-align: center;
+  padding: .2em 1.2em 0;
+}
+.deck-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: .6em;
+  background: var(--surface);
+  border: 3px solid #DCEBE2;
+  border-radius: 999px;
+  padding: .45em .9em;
+  box-shadow: var(--shadow);
+}
+.deck-picker__label {
+  font-weight: 800;
+  color: var(--primary-dark);
+  font-size: 1.05em;
+  white-space: nowrap;
+}
+.deck-btn {
+  min-height: 48px;
+  min-width: 96px;
+  font-size: 1.05em;
+  font-weight: 800;
+  border: 2px solid #CFE0D4;
+  background: #fff;
+  color: var(--primary-dark);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: .15em 1em;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.deck-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.deck-btn:active { transform: scale(.96); }
+
+@media (max-width: 560px) {
+  .deck-picker { flex-wrap: wrap; justify-content: center; border-radius: 18px; }
+  .deck-btn { min-width: 84px; }
+}
+
 /* ---------- 设置页 ---------- */
 .settings-wrap {
   max-width: 720px;

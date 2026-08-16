@@ -44,10 +44,29 @@
     var id = suit + '_' + rank;
     return {
       id: id,
+      uid: id + '#0',   // 唯一标识：两副牌时同一张牌有两份，用 uid 区分
       suit: suit,
       rank: rank,
       img: cardImg(suit, rank)
     };
+  }
+
+  // 生成 n 副牌的总牌池（两副牌时给每张牌唯一 uid，避免 UI 定位时重复）
+  function makePool(nDeck) {
+    nDeck = nDeck || 1;
+    var pool = [];
+    for (var d = 0; d < nDeck; d++) {
+      buildDeck().forEach(function (c) {
+        pool.push({
+          id: c.id,
+          uid: c.id + '#' + d,
+          suit: c.suit,
+          rank: c.rank,
+          img: c.img
+        });
+      });
+    }
+    return pool;
   }
 
   // 牌面图片路径（本地 assets/cards）
@@ -108,42 +127,60 @@
     return a;
   }
 
-  // 发牌：返回 { hands: [17,17,17], bottom: [3] }
-  function deal() {
-    var deck = shuffle(buildDeck());
+  // 发牌：返回 { hands, bottom, perHand, bottomCount }
+  // nDeck = 1 → 3 手各 17 张，底牌 3 张（54 张牌）
+  // nDeck = 2 → 3 手各 34 张，底牌 6 张（108 张牌）
+  function deal(nDeck) {
+    nDeck = nDeck || 1;
+    var deck = shuffle(makePool(nDeck));
+    var total = deck.length;
+    var perHand = nDeck === 2 ? 34 : 17;
+    var bottomCount = nDeck === 2 ? 6 : 3;
+    var dealCount = perHand * 3;
     var hands = [[], [], []];
-    for (var i = 0; i < 51; i++) hands[i % 3].push(deck[i]);
-    // 整理排序（升序，方便展示）
+    for (var i = 0; i < dealCount; i++) hands[i % 3].push(deck[i]);
     hands.forEach(function (h) { h.sort(cmpAsc); });
-    return { hands: hands, bottom: deck.slice(51).sort(cmpAsc) };
+    return {
+      hands: hands,
+      bottom: deck.slice(dealCount).sort(cmpAsc),
+      perHand: perHand,
+      bottomCount: bottomCount,
+      nDeck: nDeck
+    };
   }
 
   function cmpAsc(a, b) { return a.rank - b.rank; }
   function cmpDesc(a, b) { return b.rank - a.rank; }
 
   // 由 id 列表还原牌对象（按当前牌池/或构造）
+  // pool 可为 { id: card } 映射，或数组（按 id/uid 匹配）
   function cardsFromIds(ids, pool) {
-    if (pool) return ids.map(function (id) { return pool[id]; });
+    function find(id) {
+      if (!pool) return null;
+      if (Array.isArray(pool)) {
+        for (var i = 0; i < pool.length; i++) {
+          if (pool[i].id === id || pool[i].uid === id) return pool[i];
+        }
+        return null;
+      }
+      return pool[id] || null;
+    }
     return ids.map(function (id) {
+      var found = find(id);
+      if (found) return found;
       var m = /^(S|H|D|C|BJ|RJ)_(\d+)$/.exec(id);
-      return makeCard(m[1], parseInt(m[2], 10));
+      return m ? makeCard(m[1], parseInt(m[2], 10)) : makeCard('BJ', 16);
     });
   }
 
   /* ============ 牌型识别与比较 ============ */
 
   // 识别一组牌（rank 数组）返回 { type, mainRank, len, subRank }
-  function parseCards(ranks) {
+  // nDeck：1（默认，一副牌）| 2（两副牌，同点数最多8张、火箭=2小2大共4张王）
+  function parseCards(ranks, nDeck) {
     var n = ranks.length;
     if (n === 0) return null;
-
-    // 火箭（必须在其它判断之前，否则 16,17 会被当作"对子"检查前处理）
-    if (n === 2 && ranks.indexOf(16) !== -1 && ranks.indexOf(17) !== -1) {
-      return { type: 'rocket', mainRank: 17, len: 2 };
-    }
-
-    // 单张
-    if (n === 1) return { type: 'single', mainRank: ranks[0], len: 1 };
+    nDeck = nDeck === 2 ? 2 : 1;
 
     var count = {};
     ranks.forEach(function (r) { count[r] = (count[r] || 0) + 1; });
@@ -151,12 +188,26 @@
     var counts = kinds.map(function (k) { return count[k]; });
     var maxCount = Math.max.apply(null, counts);
 
-    // 对子 / 三张 / 炸弹（四张）
+    // 火箭：一副牌=小王+大王（2张）；两副牌=2小王+2大王（4张）
+    if (nDeck === 2) {
+      if (n === 4 && (count[16] || 0) === 2 && (count[17] || 0) === 2) {
+        return { type: 'rocket', mainRank: 17, len: 4 };
+      }
+    } else {
+      if (n === 2 && (count[16] || 0) === 1 && (count[17] || 0) === 1) {
+        return { type: 'rocket', mainRank: 17, len: 2 };
+      }
+    }
+
+    // 单张
+    if (n === 1) return { type: 'single', mainRank: ranks[0], len: 1 };
+
+    // 对子 / 三张 / 炸弹（四张及以上；两副牌最多8张）
     if (kinds.length === 1) {
       var c = counts[0];
       if (c === 2) return { type: 'pair', mainRank: kinds[0], len: 2 };
       if (c === 3) return { type: 'triple', mainRank: kinds[0], len: 3 };
-      if (c === 4) return { type: 'bomb', mainRank: kinds[0], len: 4 };
+      if (c >= 4) return { type: 'bomb', mainRank: kinds[0], len: c };
       return null;
     }
 
@@ -225,11 +276,6 @@
       }
     }
 
-    // 火箭
-    if (n === 2 && ranks.indexOf(16) !== -1 && ranks.indexOf(17) !== -1) {
-      return { type: 'rocket', mainRank: 17, len: 2 };
-    }
-
     return null;
   }
 
@@ -249,13 +295,19 @@
   };
 
   // 能否用 a 压过 b（a、b 为 parseCards 结果；a 为 null 表示不出）
-  function canBeat(a, b) {
+  // nDeck：两副牌时 5+ 张同点炸弹可压 4 张炸弹（仅同牌数同点数直接比大小，
+  // 而炸弹张数更多视为更"厚"的炸弹，可压张数更少的炸弹）
+  function canBeat(a, b, nDeck) {
     if (!a) return false;
     if (!b) return true;
     if (a.type === 'rocket') return b.type !== 'rocket';
     if (a.type === 'bomb') {
       if (b.type === 'rocket') return false;
-      if (b.type === 'bomb') return a.mainRank > b.mainRank;
+      if (b.type === 'bomb') {
+        // 两副牌：张数多的炸弹压张数少的；张数相同按点数
+        if (nDeck === 2 && a.len !== b.len) return a.len > b.len;
+        return a.mainRank > b.mainRank;
+      }
       return true;
     }
     // 普通牌型只能压同型
@@ -279,7 +331,8 @@
   }
 
   // 从手牌（rank 数组）生成所有可能的出牌组合（返回 ranks 数组列表）
-  function generateMoves(handRanks) {
+  function generateMoves(handRanks, nDeck) {
+    nDeck = nDeck === 2 ? 2 : 1;
     var moves = [];
     var count = {};
     handRanks.forEach(function (r) { count[r] = (count[r] || 0) + 1; });
@@ -288,11 +341,25 @@
     // 单张
     kinds.forEach(function (k) { moves.push([k]); });
 
-    // 对子、三张、炸弹
+    // 对子、三张
     kinds.forEach(function (k) {
       if (count[k] >= 2) moves.push([k, k]);
       if (count[k] >= 3) moves.push([k, k, k]);
-      if (count[k] >= 4) moves.push([k, k, k, k]);
+    });
+
+    // 炸弹：一副=4张；两副=4~8张（4张起，同点数全都有）
+    kinds.forEach(function (k) {
+      if (count[k] >= 4) {
+        if (nDeck === 2) {
+          for (var b = 4; b <= count[k]; b++) {
+            var bb = [];
+            for (var zz = 0; zz < b; zz++) bb.push(k);
+            moves.push(bb);
+          }
+        } else {
+          moves.push([k, k, k, k]);
+        }
+      }
     });
 
     // 三带一 / 三带二
@@ -402,14 +469,18 @@
       }
     });
 
-    // 火箭
-    if (count[16] && count[17]) moves.push([16, 17]);
+    // 火箭：一副牌=16+17；两副牌=16,16,17,17（4张王）
+    if (nDeck === 2) {
+      if ((count[16] || 0) >= 2 && (count[17] || 0) >= 2) moves.push([16, 16, 17, 17]);
+    } else {
+      if (count[16] && count[17]) moves.push([16, 17]);
+    }
 
     // 去重（用排序后的 join 做 key）+ 过滤掉无法识别为合法牌型的组合
     var seen = {};
     var unique = [];
     moves.forEach(function (m) {
-      if (!parseCards(m)) return; // 保证只输出合法牌型
+      if (!parseCards(m, nDeck)) return; // 保证只输出合法牌型
       var key = m.slice().sort(function (a, b) { return a - b; }).join(',');
       if (!seen[key]) { seen[key] = true; unique.push(m); }
     });
@@ -418,13 +489,13 @@
   }
 
   // 找出能压过 given（ranks 数组）的所有出法，返回 moves 列表
-  function findBeats(handRanks, givenRanks) {
-    var given = parseCards(givenRanks);
+  function findBeats(handRanks, givenRanks, nDeck) {
+    var given = parseCards(givenRanks, nDeck);
     if (!given) return [];
-    var all = generateMoves(handRanks);
+    var all = generateMoves(handRanks, nDeck);
     return all.filter(function (m) {
-      var parsed = parseCards(m);
-      return parsed && canBeat(parsed, given);
+      var parsed = parseCards(m, nDeck);
+      return parsed && canBeat(parsed, given, nDeck);
     });
   }
 
@@ -450,11 +521,15 @@
   }
 
   // rank 数组 → 展示文字，如 "对子 · 8" "顺子 · 3-7"
-  function describe(ranks) {
-    var parsed = parseCards(ranks);
+  // 炸弹会标注张数（如 "炸弹 · 6张 8"），两副牌时更清楚
+  function describe(ranks, nDeck) {
+    var parsed = parseCards(ranks, nDeck);
     if (!parsed) return '不合法的出牌';
     var name = typeName(parsed.type);
     var label = RANK_LABEL[parsed.mainRank];
+    if (parsed.type === 'bomb' && parsed.len > 4) {
+      return '炸弹 · ' + parsed.len + '张 ' + label;
+    }
     switch (parsed.type) {
       case 'straight':
         return '顺子 ' + RANK_LABEL[ranks[0]] + ' 到 ' + label;
@@ -475,6 +550,7 @@
     RANK_LABEL: RANK_LABEL,
     isRedSuit: isRedSuit,
     buildDeck: buildDeck,
+    makePool: makePool,
     makeCard: makeCard,
     cardImg: cardImg,
     backImg: backImg,

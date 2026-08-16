@@ -238,11 +238,69 @@
   font-size: .95em;
 }
 
-/* 底牌 */
+/* 上下家同时出的牌：左牌位 / 右牌位 */
+.ai-table-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .3em;
+  width: 100%;
+  max-width: 420px;
+  min-height: 0;
+}
+.play-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2em;
+  min-width: 0;
+  max-width: 46%;
+}
+.play-slot--left { align-items: flex-start; }
+.play-slot--right { align-items: flex-end; }
+.play-slot__cards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .2em;
+  min-height: 66px;
+}
+.play-slot__cards .poker-card {
+  width: 52px;
+  height: 74px;
+  border-radius: 7px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.35);
+}
+.play-slot__tag {
+  font-size: .82em;
+  color: rgba(255,255,255,.95);
+  background: rgba(0,0,0,.3);
+  border-radius: 999px;
+  padding: .05em .7em;
+  white-space: nowrap;
+}
+
+/* 底牌（屏幕最顶端条） */
+.bottom-cards-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .6em;
+  padding: .3em .6em;
+  background: rgba(0,0,0,.18);
+  border-bottom: 2px solid rgba(255,255,255,.12);
+}
+.bottom-cards-bar__label {
+  font-size: .9em;
+  font-weight: 800;
+  color: #FFE08A;
+  white-space: nowrap;
+}
 .bottom-cards {
   display: flex;
   gap: .3em;
-  margin-top: .15em;
 }
 .bottom-cards .poker-card {
   width: 52px;
@@ -590,6 +648,43 @@
 
 /* ---------- 响应式 ---------- */
 /* 布局网格/对手/中央牌/按钮的响应式（玩家手牌尺寸由 JS 动态计算，不在此覆盖） */
+
+/* 一体化手牌区：窄屏/矮屏时把「信息条+手牌+操作按钮」合并成一个整体，
+   信息条浮在顶部、操作按钮浮在底部，不再各自占一行，
+   把竖直空间让给手牌 → 牌可以更大，适合老人看 */
+@media (max-width: 720px), (max-height: 660px) {
+  .player-zone {
+    position: relative;
+    gap: 0;
+    padding: calc(var(--fs) * 1.5) .35em calc(var(--fs) * 2.15); /* 上给信息条、下给按钮 */
+    background: linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.24));
+  }
+  .player-info-row {
+    position: absolute;
+    top: .15em;
+    left: .4em;
+    right: .4em;
+    z-index: 7;
+    padding: .1em .6em;
+    background: rgba(0,0,0,.30);
+    border-radius: 10px;
+    min-height: 0;
+    pointer-events: none;   /* 不挡手牌点选 */
+  }
+  .play-actions {
+    position: absolute;
+    bottom: .12em;
+    left: .3em;
+    right: .3em;
+    z-index: 7;
+    background: rgba(0,0,0,.32);
+    border-radius: 12px;
+    padding: .15em .2em;
+  }
+  .play-actions .btn { min-height: 44px; min-width: 92px; font-size: 1.02em; }
+  .player-hand { padding: .2em .5em .05em; }
+}
+
 @media (max-width: 960px) {
   .game-body {
     grid-template-columns: 84px 1fr 84px;
@@ -600,7 +695,11 @@
   .opponent-name { font-size: .82em; }
   .opponent-cards .poker-card { width: 24px; height: 35px; margin-top: -22px; }
   .center-cards .poker-card { width: 52px; height: 75px; }
+  .play-slot__cards .poker-card { width: 46px; height: 66px; }
+  .play-slot__tag { font-size: .75em; }
   .bottom-cards .poker-card { width: 44px; height: 62px; }
+  .bottom-cards-bar { padding: .2em .4em; gap: .4em; }
+  .bottom-cards-bar__label { font-size: .8em; }
   .player-hand { min-height: calc(var(--fs) * 4.1); }
   .coach-fab { width: 68px; height: 68px; font-size: 1.15em; right: .7em; bottom: 1em; }
   .play-actions .btn { min-width: 96px; min-height: 52px; font-size: 1.05em; }
@@ -613,7 +712,11 @@
   .avatar { width: 40px; height: 40px; font-size: 1em; }
   .opponent-cards .poker-card { width: 20px; height: 30px; margin-top: -18px; }
   .center-cards .poker-card { width: 46px; height: 66px; }
+  .play-slot__cards .poker-card { width: 42px; height: 60px; }
+  .play-slot__tag { font-size: .7em; }
   .bottom-cards .poker-card { width: 38px; height: 54px; }
+  .bottom-cards-bar { padding: .15em .3em; gap: .3em; }
+  .bottom-cards-bar__label { font-size: .75em; }
   .player-hand { min-height: calc(var(--fs) * 3.3); padding: .4em .5em .1em; }
   .play-actions .btn { min-width: 84px; min-height: 50px; font-size: 1em; }
   .bid-panel__btns .btn { min-width: 92px; min-height: 60px; font-size: 1.15em; }
@@ -648,8 +751,12 @@
   .center-zone__status { font-size: .95em; min-height: 1.3em; }
   .center-cards { min-height: 64px; }
   .center-cards .poker-card { width: 44px; height: 63px; }
+  .play-slot__cards { min-height: 48px; }
+  .play-slot__cards .poker-card { width: 40px; height: 57px; }
   .bottom-cards { margin-top: .05em; }
   .bottom-cards .poker-card { width: 36px; height: 51px; }
+  .bottom-cards-bar { padding: .1em .25em; gap: .25em; }
+  .bottom-cards-bar__label { font-size: .72em; }
   .player-zone { gap: .15em; padding: .25em .4em .5em; }
   .player-info-row { padding: 0 .2em; }
   .player-hand { min-height: calc(var(--fs) * 3.0); padding: .35em .5em .05em; }

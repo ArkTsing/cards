@@ -12,60 +12,61 @@
   'use strict';
 
   // 给真人玩家当前局面的建议
-  // ctx: { handRanks, lastPlay: ranks|null, lastSeat, myIndex, roles, teammateCount }
+  // ctx: { handRanks, lastPlay: ranks|null, lastSeat, myIndex, roles, teammateCount, nDeck }
   function suggest(ctx) {
     var hand = ctx.handRanks;
     var last = ctx.lastPlay;
+    var nDeck = ctx.nDeck === 2 ? 2 : 1;
     var needBeat = last && ctx.lastSeat !== ctx.myIndex;
 
     if (!needBeat) {
       // 自由出
-      var lead = AI.pickBestLead(hand);
+      var lead = AI.pickBestLead(hand, { nDeck: nDeck });
       if (!lead) {
         return { move: null, text: '这一手您随便出，尽量先出小的。', title: '自由出牌' };
       }
-      var parsed = C.parseCards(lead);
+      var parsed = C.parseCards(lead, nDeck);
       var name = C.typeName(parsed.type);
       var why = freeWhy(parsed, hand, lead);
       return {
         move: lead,
-        title: '建议出：' + C.describe(lead),
+        title: '建议出：' + C.describe(lead, nDeck),
         text: why
       };
     }
 
     // 需要压上家
-    var beats = C.findBeats(hand, last);
+    var beats = C.findBeats(hand, last, nDeck);
     if (!beats.length) {
       // 有炸弹/火箭也可以压，但这里判断是否值得
-      var hasBomb = C.findBeats(hand, last).some(function (m) {
-        var p = C.parseCards(m);
+      var hasBomb = C.findBeats(hand, last, nDeck).some(function (m) {
+        var p = C.parseCards(m, nDeck);
         return p.type === 'bomb' || p.type === 'rocket';
       });
       if (hasBomb && hand.length >= 8) {
         return { move: null, title: '建议：先不要', text: '您有炸弹可以压，但现在不着急。炸弹留在关键时候用更值。先不要。' };
       }
-      return { move: null, title: '建议：不要', text: '您压不过「' + C.describe(last) + '」，选择"不要"就好，不丢人。' };
+      return { move: null, title: '建议：不要', text: '您压不过「' + C.describe(last, nDeck) + '」，选择"不要"就好，不丢人。' };
     }
 
     // 有能压的，选最小的
     var best = null, bestScore = 999;
     beats.forEach(function (m) {
-      var parsed = C.parseCards(m);
+      var parsed = C.parseCards(m, nDeck);
       var sc = parsed.mainRank;
       if (parsed.type === 'bomb' || parsed.type === 'rocket') sc += 30;
       if (hand.length - m.length === 0) sc -= 40; // 出完就赢
       if (sc < bestScore) { bestScore = sc; best = m; }
     });
-    var bp = C.parseCards(best);
-    var bt = C.parseCards(last);
+    var bp = C.parseCards(best, nDeck);
+    var bt = C.parseCards(last, nDeck);
     var text;
     if (bp.type === 'bomb' || bp.type === 'rocket') {
-      text = '您可以用「' + C.describe(best) + '」压过对方的「' + C.describe(last) + '」。这一手值得炸一下，拿到出牌权。';
+      text = '您可以用「' + C.describe(best, nDeck) + '」压过对方的「' + C.describe(last, nDeck) + '」。这一手值得炸一下，拿到出牌权。';
     } else {
-      text = '用「' + C.describe(best) + '」压过对方的「' + C.describe(last) + '」——这是最小的能压住的牌，不浪费大牌。';
+      text = '用「' + C.describe(best, nDeck) + '」压过对方的「' + C.describe(last, nDeck) + '」——这是最小的能压住的牌，不浪费大牌。';
     }
-    return { move: best, title: '建议出：' + C.describe(best), text: text };
+    return { move: best, title: '建议出：' + C.describe(best, nDeck), text: text };
   }
 
   // 自由出牌时的一句话理由
@@ -105,20 +106,21 @@
     n = n || 3;
     var hand = ctx.handRanks;
     var last = ctx.lastPlay;
+    var nDeck = ctx.nDeck === 2 ? 2 : 1;
     var needBeat = last && ctx.lastSeat !== ctx.myIndex;
     var out = [];
 
     if (!needBeat) {
       // 自由出：从 AI 的候选中挑几套不同的（都合法、都合理）
-      var leads = AI.leadCandidates(hand);
+      var leads = AI.leadCandidates(hand, nDeck);
       leads.forEach(function (m) {
-        var parsed = C.parseCards(m);
+        var parsed = C.parseCards(m, nDeck);
         if (parsed.type === 'bomb' || parsed.type === 'rocket') return;
         if (parsed.type === 'single' && parsed.mainRank >= 14 && hand.length > 2) return;
         if (out.length >= n) return;
         out.push({
           move: m,
-          title: C.describe(m),
+          title: C.describe(m, nDeck),
           text: freeWhy(parsed, hand, m)
         });
       });
@@ -130,24 +132,24 @@
     }
 
     // 需要压上家
-    var beats = C.findBeats(hand, last);
+    var beats = C.findBeats(hand, last, nDeck);
     if (!beats.length) {
-      out.push({ move: null, title: '建议：不要', text: '您压不过「' + C.describe(last) + '」，选择"不要"就好，不丢人。' });
+      out.push({ move: null, title: '建议：不要', text: '您压不过「' + C.describe(last, nDeck) + '」，选择"不要"就好，不丢人。' });
       return out;
     }
 
     // 把能压的牌按"划算程度"排序，取前几套
-    var cands = AI.followCandidates(hand, last);
+    var cands = AI.followCandidates(hand, last, nDeck);
     cands.forEach(function (m) {
       if (out.length >= n) return;
-      var parsed = C.parseCards(m);
+      var parsed = C.parseCards(m, nDeck);
       var text;
       if (parsed.type === 'bomb' || parsed.type === 'rocket') {
-        text = '用「' + C.describe(m) + '」压过对方的「' + C.describe(last) + '」。这一手值得炸一下，拿到出牌权。';
+        text = '用「' + C.describe(m, nDeck) + '」压过对方的「' + C.describe(last, nDeck) + '」。这一手值得炸一下，拿到出牌权。';
       } else {
-        text = '用「' + C.describe(m) + '」压过对方的「' + C.describe(last) + '」——这是比较划算的压法，不浪费大牌。';
+        text = '用「' + C.describe(m, nDeck) + '」压过对方的「' + C.describe(last, nDeck) + '」——这是比较划算的压法，不浪费大牌。';
       }
-      out.push({ move: m, title: C.describe(m), text: text });
+      out.push({ move: m, title: C.describe(m, nDeck), text: text });
     });
     // 如果还有位置，补一个"不要"作为备选
     if (out.length < n && hand.length > 2) {
@@ -157,11 +159,11 @@
   }
 
   // 电脑出牌的讲解（练习模式用）
-  function explainAIPlay(seatName, ranks) {
+  function explainAIPlay(seatName, ranks, nDeck) {
     if (!ranks) return seatName + ' 选择"不要"。';
-    var parsed = C.parseCards(ranks);
+    var parsed = C.parseCards(ranks, nDeck);
     if (!parsed) return seatName + ' 出了一手牌。';
-    var desc = C.describe(ranks);
+    var desc = C.describe(ranks, nDeck);
     switch (parsed.type) {
       case 'single':
         return seatName + ' 出了一张 ' + C.RANK_LABEL[parsed.mainRank] + '。单牌一张一张出，比较小就先出。';
@@ -172,6 +174,9 @@
       case 'straight':
         return seatName + ' 出了一个顺子（' + desc + '），一次走了 5 张牌。';
       case 'bomb':
+        if (parsed.len > 4) {
+          return '炸！' + seatName + ' 出了一个 ' + parsed.len + ' 张的炸弹（' + C.RANK_LABEL[parsed.mainRank] + '），倍数翻倍了！';
+        }
         return '炸！' + seatName + ' 出了一个炸弹（四个' + C.RANK_LABEL[parsed.mainRank] + '），倍数翻倍了！';
       case 'rocket':
         return '王炸！' + seatName + ' 打出了火箭，这是最大的牌！';
@@ -189,8 +194,8 @@
   }
 
   // 叫分建议
-  function suggestBid(handRanks, minBid) {
-    var r = AI.decideBid(handRanks, 'normal', 2, minBid);
+  function suggestBid(handRanks, minBid, nDeck) {
+    var r = AI.decideBid(handRanks, 'normal', 2, minBid, nDeck);
     if (r.bid === 0) {
       return { bid: 0, title: '建议：不叫', text: r.reason + '。叫分越高，倍数越大，输赢也越大。牌不好就先不叫。' };
     }

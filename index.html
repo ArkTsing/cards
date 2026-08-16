@@ -28,11 +28,20 @@
       <p class="home-hero__sub">规则看不懂？没关系。<br>先看看怎么玩，再坐下打两局，慢慢就会了。</p>
     </section>
 
+    <!-- 牌数选择：一副牌 / 两副牌（记忆选择，直接进对局） -->
+    <section class="home-deck" aria-label="选择用几副牌玩">
+      <div class="deck-picker">
+        <span class="deck-picker__label">用几副牌玩？</span>
+        <button type="button" class="deck-btn" id="deckBtn1" data-deck="1">🂠 一副牌</button>
+        <button type="button" class="deck-btn" id="deckBtn2" data-deck="2">🂡 两副牌</button>
+      </div>
+    </section>
+
     <nav class="home-entries" aria-label="主要功能">
       <a class="home-entry home-entry--learn" href="learn/index.html">
         <span class="home-entry__icon" aria-hidden="true">📖</span>
         <span class="home-entry__title">学规则</span>
-        <span class="home-entry__desc">7 课慢慢讲，配图和口诀，学完还能做小测验</span>
+        <span class="home-entry__desc">8 课慢慢讲，配图和口诀，学完还能做小测验</span>
       </a>
       <a class="home-entry home-entry--play" href="play/index.html">
         <span class="home-entry__icon" aria-hidden="true">🂠</span>
@@ -74,11 +83,26 @@
   <script>
     // 顶栏字号按钮
     DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+    // 牌数选择：一副牌 / 两副牌（记忆，进对局时读取）
+    (function () {
+      var deck = DDZStorage.get('deck', 1);
+      var b1 = document.getElementById('deckBtn1');
+      var b2 = document.getElementById('deckBtn2');
+      function setActive(d) {
+        deck = d;
+        b1.classList.toggle('active', d === 1);
+        b2.classList.toggle('active', d === 2);
+        DDZStorage.set('deck', d);
+      }
+      b1.addEventListener('click', function () { setActive(1); });
+      b2.addEventListener('click', function () { setActive(2); });
+      setActive(deck);
+    })();
     // 学习进度
     (function () {
       var done = DDZStorage.get('learn_done', {});
       var completed = Object.keys(done).filter(function (k) { return done[k]; }).length;
-      var total = 7;
+      var total = 8;
       var fill = document.getElementById('learnProgressFill');
       var text = document.getElementById('learnProgressText');
       if (completed === 0) {

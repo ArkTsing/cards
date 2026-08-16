@@ -82,7 +82,7 @@
       <div class="card">
         <div class="settings-row">
           <div>
-            <div class="settings-row__label" id="progressText">课程进度：0 / 7</div>
+            <div class="settings-row__label" id="progressText">课程进度：0 / 8</div>
             <span class="settings-row__hint">看过的课程会自动打勾</span>
           </div>
           <button type="button" class="btn btn--ghost" id="goLearn">去学习</button>
@@ -145,14 +145,14 @@
     // 学习进度
     var done = DDZStorage.get('learn_done', {});
     var completed = Object.keys(done).filter(function (k) { return done[k]; }).length;
-    document.getElementById('progressText').textContent = '课程进度：' + completed + ' / 7';
+    document.getElementById('progressText').textContent = '课程进度：' + completed + ' / 8';
     document.getElementById('goLearn').addEventListener('click', function () {
       location.href = 'learn/index.html';
     });
     document.getElementById('resetProgress').addEventListener('click', function () {
       if (confirm('确定要重置学习进度吗？看过的课程会重新标为"没看过"。')) {
         DDZStorage.set('learn_done', {});
-        document.getElementById('progressText').textContent = '课程进度：0 / 7';
+        document.getElementById('progressText').textContent = '课程进度：0 / 8';
         alert('学习进度已重置。');
       }
     });
