@@ -35,6 +35,26 @@ t('叫分范围合法', () => {
   }
 });
 
+// ---------- 难度档案 ----------
+console.log('== 难度档案（4 档） ==');
+t('4 档难度齐全', () => {
+  const ks = Object.keys(AI.DIFFICULTY).sort();
+  assert(JSON.stringify(ks) === JSON.stringify(['easy', 'hard', 'master', 'normal']), '难度键=' + ks.join(','));
+});
+t('未知难度回退 normal', () => assert(AI.diffLevel('x' + Math.random()) === 1));
+t('每档都有策略档案', () => {
+  ['easy', 'normal', 'hard', 'master'].forEach(d => {
+    const p = AI.profile(d);
+    assert(p && typeof p.stablePick === 'number' && typeof p.bombUse === 'string', d + ' 缺档案');
+  });
+});
+t('难度单调：越强越敢叫', () => {
+  // 中强牌：master 叫分 >= hard >= normal >= easy
+  const mid = [15, 14, 14, 13, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 3, 3];
+  const bids = ['easy', 'normal', 'hard', 'master'].map(d => AI.decideBid(mid, d, 0).bid);
+  for (let i = 1; i < bids.length; i++) assert(bids[i] >= bids[i - 1], '叫分应单调递增，实际 ' + bids.join(','));
+});
+
 // ---------- 完整模拟对局 ----------
 console.log('== 模拟对局（500 局，含叫分/出牌/结算） ==');
 
@@ -170,6 +190,24 @@ for (let i = 0; i < 500; i++) {
   catch (e) { errors2++; console.log('  对局异常: ' + e.message); }
 }
 t('额外 500 局零异常', () => assert(errors2 === 0));
+
+// ---------- hard / master 档闭环 ----------
+console.log('== 高难度档闭环（hard/master 各 300 局） ==');
+for (const diff of ['hard', 'master']) {
+  let e = 0, ld = 0, fm = 0, fin = 0;
+  for (let i = 0; i < 300; i++) {
+    try {
+      const r = simulateOne(diff, false);
+      if (r.restarted) continue;
+      fin++;
+      if (r.winnerRole === 'landlord') ld++; else fm++;
+    } catch (err) { e++; if (e <= 3) console.log('  ' + diff + ' 异常: ' + err.message); }
+  }
+  t(diff + ' 300 局零异常', () => assert(e === 0, e + ' 个异常'));
+  t(diff + ' 有地主胜', () => assert(ld > 0));
+  t(diff + ' 有农民胜', () => assert(fm > 0));
+  console.log(`  --- ${diff} 统计: 完成 ${fin}, 地主胜 ${ld}, 农民胜 ${fm}`);
+}
 
 console.log('\n结果: ' + passed + ' 通过, ' + failed + ' 失败');
 process.exit(failed > 0 || errors > 0 || errors2 > 0 ? 1 : 0);

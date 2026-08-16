@@ -219,6 +219,7 @@ html {
 .modal-backdrop.show { opacity: 1; pointer-events: auto; }
 .modal {
   background: var(--surface);
+  color: var(--text);              /* 弹窗文字显式设为正文色：游戏页 body 是白字，不继承 */
   border-radius: 20px;
   max-width: 540px;
   width: 100%;

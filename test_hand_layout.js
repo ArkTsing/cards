@@ -7,26 +7,31 @@ function fitHand(n, availW, availH, fs) {
   var maxH = (availH - fs * 1.6) / 1.35;
   if (maxH < 30) maxH = 30;
   var desiredRad = FAN_DESIRED_MAX_ANGLE * Math.PI / 180;
+  // 逐牌宽枚举，选"可见宽度 = min(露边, 牌宽×50%)"最大的方案
+  var best = null, bestScore = -1;
   for (var cw = Math.floor(maxW); cw >= minW; cw--) {
     var h = cw * 1.447;
     if (h > maxH) continue;
     var sliver = Math.min(FAN_MAX_SLIVER, (availW - cw) / Math.max(1, n - 1));
     if (sliver < FAN_MIN_SLIVER) sliver = Math.max(2, sliver);
     var base = cw + (n - 1) * sliver;
-    if (base <= availW && sliver >= 2) {
-      var slack = availW - base;
-      var maxRad = Math.min(desiredRad, Math.max(0, slack / (2.6 * h)));
-      var stepAngle = n > 1 ? (maxRad * 180 / Math.PI) / ((n - 1) / 2) : 0;
-      stepAngle = Math.min(stepAngle, 3.4);
-      return { w: Math.round(cw), h: Math.round(h), sliver: sliver, stepAngle: stepAngle };
-    }
+    if (base > availW) continue;
+    var score = Math.min(sliver, cw * 0.5);
+    if (score > bestScore) { bestScore = score; best = { w: cw, h: h, sliver: sliver }; }
   }
-  var cw2 = minW, h2 = minW * 1.447;
-  if (h2 > maxH) { h2 = maxH; cw2 = maxH / 1.447; }
-  var sliver2 = (availW - cw2 - 2.6 * h2 * Math.sin(2 * Math.PI / 180)) / Math.max(1, n - 1);
-  if (sliver2 < 1) sliver2 = 1;
-  if (sliver2 > FAN_MIN_SLIVER) sliver2 = FAN_MIN_SLIVER;
-  return { w: Math.round(cw2), h: Math.round(h2), sliver: sliver2, stepAngle: 0 };
+  if (best) {
+    var slack = availW - (best.w + (n - 1) * best.sliver);
+    var maxRad = Math.min(desiredRad, Math.max(0, slack / (2.6 * best.h)));
+    var stepAngle = n > 1 ? (maxRad * 180 / Math.PI) / ((n - 1) / 2) : 0;
+    stepAngle = Math.min(stepAngle, 3.4);
+    return { w: Math.round(best.w), h: Math.round(best.h), sliver: best.sliver, stepAngle: stepAngle };
+  }
+  var cw3 = minW, h3 = minW * 1.447;
+  if (h3 > maxH) { h3 = maxH; cw3 = maxH / 1.447; }
+  var sliver3 = (availW - cw3 - 2.6 * h3 * Math.sin(2 * Math.PI / 180)) / Math.max(1, n - 1);
+  if (sliver3 < 1) sliver3 = 1;
+  if (sliver3 > FAN_MIN_SLIVER) sliver3 = FAN_MIN_SLIVER;
+  return { w: Math.round(cw3), h: Math.round(h3), sliver: sliver3, stepAngle: 0 };
 }
 function actualSpan(fit, n) {
   var edgeDeg = fit.stepAngle * (n - 1) / 2;

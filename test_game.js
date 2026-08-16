@@ -133,17 +133,120 @@ console.log('== 压牌规则 ==');
   game.roles = ['landlord', 'farmer', 'farmer'];
   game.currentPlayer = 0;
   game.hands[0] = [3, 3, 9];
-  game.hands[1] = [7, 7, 8];
+  game.hands[1] = [9, 9, 8];   // seat1 有对9，能压 seat2 的对8
   game.hands[2] = [8, 8, 10];
   game.lastPlay = null;
   game.multiplier = 1;
   G.playCards(game, 0, [3, 3]);
-  // 现在 currentPlayer = 1，出对8
-  const r = G.playCards(game, 1, [7, 7]);
-  t('对7>对3 合法', () => assert(r.ok === true));
-  // 轮到2，出对8压对7
-  const r2 = G.playCards(game, 2, [8, 8]);
-  t('对8>对7 合法', () => assert(r2.ok === true));
+  // 逆时针：0 出完 → 轮到 2，出对8
+  const r = G.playCards(game, 2, [8, 8]);
+  t('对8>对3 合法', () => assert(r.ok === true));
+  // 逆时针：2 出完 → 轮到 1，出对9压对8
+  const r2 = G.playCards(game, 1, [9, 9]);
+  t('对9>对8 合法', () => assert(r2.ok === true));
+}
+
+console.log('== 四人两副牌（25张/人 + 8底） ==');
+function eq(a, b, msg) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error((msg || '值不等') + ' 实际 ' + JSON.stringify(a)); }
+{
+  const d = C.deal(2, 4);
+  t('4人发牌：每人25张', () => eq(d.hands.map(h => h.length), [25, 25, 25, 25]));
+  t('4人发牌：底牌8张', () => eq(d.bottom.length, 8));
+  t('4人发牌：强制两副牌', () => eq(d.nDeck, 2));
+}
+{
+  // 4 人完整对局闭环（4 档难度都跑）
+  function simFour(difficulty) {
+    const game = G.createGame({ difficulty, humanSeat: 3, nDeck: 2, players: 4 });
+    let guard = 0;
+    while (guard++ < 3000) {
+      const st = G.getState(game);
+      if (st.phase === 'ended') return st;
+      if (st.phase === 'bidding') {
+        const seat = st.currentBidder;
+        const r = AI.decideBid(st.handRanks[seat], difficulty, seat, st.highestBid, 2, { players: 4 });
+        const res = G.placeBid(game, r.bid);
+        assert(res.ok, '4人 placeBid 失败: ' + res.msg);
+        if (res.finished) {
+          eq(game.hands[game.landlord].length, 33, '4人地主应有33张');
+          eq(st.hands[(game.landlord + 1) % 4].length, 25, '4人农民应25张');
+        }
+      } else if (st.phase === 'playing') {
+        const seat = st.currentPlayer;
+        const ctx = {
+          handRanks: st.handRanks[seat],
+          lastPlay: st.lastPlayRanks,
+          lastPlayerIndex: st.lastPlaySeat,
+          myIndex: seat,
+          roles: st.roles,
+          difficulty,
+          players: 4,
+          playerCounts: st.handRanks.map(h => h.length),
+          teammateLastCount: st.lastPlaySeat >= 0 ? st.handRanks[st.lastPlaySeat].length : null,
+          nDeck: 2,
+          discarded: st.discardedRanks
+        };
+        const res = G.playCards(game, seat, AI.decidePlay(ctx));
+        assert(res.ok, '4人 playCards 失败 seat=' + seat + ' msg=' + res.msg);
+        if (res.finished) return res;
+      } else break;
+    }
+    assert(game.phase === 'ended', '4人对局未结束，guard 到达上限');
+    return 'ended';
+  }
+  let fin = 0, ld = 0, fm = 0, err4 = 0;
+  for (let i = 0; i < 200; i++) {
+    try {
+      const r = simFour(i % 4 === 0 ? 'easy' : i % 4 === 1 ? 'normal' : i % 4 === 2 ? 'hard' : 'master');
+      if (r === 'restart') continue;
+      fin++;
+      if (r.winnerRole === 'landlord') ld++; else fm++;
+      const sum = r.scores.reduce((a, b) => a + b, 0);
+      assert(Math.abs(sum) < 0.01, '4人得分之和应为0，实际 ' + sum);
+    } catch (e) { err4++; if (err4 <= 5) console.log('  4人异常: ' + e.message); }
+  }
+  t('200局4人两副闭环无异常', () => assert(err4 === 0, err4 + ' 个异常'));
+  t('4人局有地主胜', () => assert(ld > 0));
+  t('4人局有农民胜', () => assert(fm > 0));
+  console.log(`  4人统计: 完成 ${fin}, 地主胜 ${ld}, 农民胜 ${fm}`);
+}
+{
+  // 4 人结算精确性：地主胜 = 每个农民各扣 total
+  const game = G.createGame({ difficulty: 'normal', humanSeat: 3, nDeck: 2, players: 4 });
+  game.phase = 'playing';
+  game.landlord = 0;
+  game.roles = ['landlord', 'farmer', 'farmer', 'farmer'];
+  game.currentPlayer = 0;
+  game.hands[0] = [3];
+  game.hands[1] = [5, 6];
+  game.hands[2] = [7, 8];
+  game.hands[3] = [9, 10];
+  game.lastPlay = null;
+  game.multiplier = 2; // 叫2分，无炸弹无春天
+  const res4 = G.playCards(game, 0, [3]);
+  // 无农民出过牌 → 春天，倍数 ×2：total = 1×2×2 = 4；地主 +4×3=12，农民各 -4
+  t('4人地主胜(春天)：地主 +12，农民各 -4', () => eq(res4.scores, [12, -4, -4, -4]));
+  t('4人得分和为0', () => eq(res4.scores.reduce((a, b) => a + b, 0), 0));
+}
+{
+  // 记牌数据：discardedRanks 累积已出牌
+  const game = G.createGame({ difficulty: 'normal', humanSeat: 2, nDeck: 1 });
+  game.phase = 'playing';
+  game.landlord = 0;
+  game.roles = ['landlord', 'farmer', 'farmer'];
+  game.currentPlayer = 0;
+  game.hands[0] = [3, 3, 9];
+  game.hands[1] = [7, 7, 8];
+  game.hands[2] = [8, 8, 10];
+  game.lastPlay = null;
+  game.lastPlays = [];
+  game.discarded = [];
+  game.multiplier = 1;
+  G.playCards(game, 0, [3, 3]);
+  G.playCards(game, 2, [8, 8]);   // 逆时针：0 → 2
+  let stG = G.getState(game);
+  t('记牌：discardedRanks 含已出的 3,3,8,8', () => assert(JSON.stringify(stG.discardedRanks.slice().sort((a,b)=>a-b)) === JSON.stringify([3,3,8,8])));
+  t('getState 带 players', () => assert(stG.players === 3));
 }
 
 console.log('\n结果: ' + passed + ' 通过, ' + failed + ' 失败');

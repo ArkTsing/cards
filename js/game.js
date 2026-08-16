@@ -13,46 +13,64 @@
 
   var BASE_SCORE = 1;
 
+  // 逆时针出牌顺序 = 屏幕方向：我 → 右边 → 上面 → 左边 → 我（循环）
+  // 座位编号按屏幕位置：3 人局 0=左、1=右、2=我；4 人局 0=上、1=左、2=右、3=我
+  // 输入当前座位，返回逆时针顺序的"下一家"
+  function nextSeatCounterClockwise(seat, players) {
+    if (players === 4) {
+      // 屏幕逆时针：我(3) → 右(2) → 上(0) → 左(1) → 我(3)
+      return { 3: 2, 2: 0, 0: 1, 1: 3 }[seat];
+    }
+    // 3 人局无"上"，逆时针：我(2) → 右(1) → 左(0) → 我(2)
+    return { 2: 1, 1: 0, 0: 2 }[seat];
+  }
+
   // 创建新对局
   // opts.nDeck: 1（一副，54张）| 2（两副，108张，每手34张+6底牌）
+  // opts.players: 3（默认）| 4（四人两副：每手25张+8底牌，1地主vs3农民）
+  //   players=4 时强制两副牌（108张）
   function createGame(opts) {
     opts = opts || {};
     var difficulty = opts.difficulty || 'normal';
-    var humanSeat = opts.humanSeat || 2;   // 0/1 为电脑，2 为真人（下方）
+    var humanSeat = opts.humanSeat == null ? 2 : opts.humanSeat;   // 默认下方(末位)
+    var players = opts.players === 4 ? 4 : 3;
     var nDeck = opts.nDeck === 2 ? 2 : 1;
+    if (players === 4) nDeck = 2;   // 四人玩法必须两副牌
 
-    var d = C.deal(nDeck);
-    // hands: 3 个「牌对象」数组（降序）；ranks 方法供逻辑使用
+    var d = C.deal(nDeck, players);
+    // hands: 各玩家的「牌对象」数组（降序）；ranks 方法供逻辑使用
     var hands = d.hands.map(function (h) { return h.sort(cmpDescObj); });
     var bottom = d.bottom.sort(cmpDescObj);
 
     return {
       phase: 'bidding',        // bidding | playing | ended
       difficulty: difficulty,
+      players: players,
       humanSeat: humanSeat,
       nDeck: nDeck,
       perHand: d.perHand,
       bottomCount: d.bottomCount,
-      hands: hands,            // 3 个牌对象数组（降序）
-      bottom: bottom,          // 底牌（牌对象）：1副3张 / 2副6张
-      roles: ['farmer', 'farmer', 'farmer'],   // 初始都是农民，选出地主后改
+      hands: hands,            // 各玩家牌对象数组（降序）
+      bottom: bottom,          // 底牌（牌对象）：1副3张 / 2副6张 / 四人8张
+      roles: (function () { var r = []; for (var p = 0; p < players; p++) r.push('farmer'); return r; })(), // 初始都是农民，选出地主后改
       landlord: -1,
       bidValue: 0,
       bidHistory: [],
-      currentBidder: Math.floor(Math.random() * 3), // 第一个叫分的人
+      currentBidder: Math.floor(Math.random() * players), // 第一个叫分的人
       highestBid: 0,
       passes: 0,               // 连续 pass 数（叫分阶段用）
       // 出牌阶段
       currentPlayer: -1,
       lastPlay: null,          // 当前"必须压"的基准牌 { cards, ranks, seat, parsed }
-      lastPlays: [],           // 最近一圈各家出的牌（按座位索引 0/1/2），同时显示用
+      lastPlays: [],           // 最近一圈各家出的牌（按座位索引），同时显示用
       passStreak: 0,
+      discarded: [],           // 已出过的牌（rank 数组，升序），供记牌
       bombs: 0,
       spring: false,           // 春天（结算时判断）
       winner: -1,
       winnerRole: null,
       multiplier: 1,
-      scores: [0, 0, 0],
+      scores: [],
       log: []
     };
   }
@@ -81,12 +99,12 @@
     }
     game.passes = 0;
 
-    // 下一家
-    game.currentBidder = (seat + 1) % 3;
+    // 下一家（逆时针：我 → 右 → 上 → 左 → 我）
+    game.currentBidder = nextSeatCounterClockwise(seat, game.players);
     // 判断叫分是否结束：轮完一圈，或者有人叫了 3 分
     var done = false;
     if (game.highestBid === 3) done = true;
-    if (game.bidHistory.length >= 3) done = true; // 3 人各叫过一次
+    if (game.bidHistory.length >= game.players) done = true; // 各家都叫过一次
 
     if (!done) {
       return { ok: true, bid: bid, next: game.currentBidder, finished: false };
@@ -168,6 +186,8 @@
       game.bombs++;
       game.multiplier *= 2;
     }
+    // 记牌：已打出的牌（rank 升序）追加，供 AI 估算剩余大牌（对真人也可见，非作弊）
+    ranksSorted.forEach(function (r) { game.discarded.push(r); });
     game.lastPlay = { cards: cards.slice(), ranks: ranksSorted, seat: seat, parsed: parsed };
     recordLastPlay(game, seat, { cards: cards.slice(), ranks: ranksSorted, parsed: parsed });
     game.passStreak = 0;
@@ -198,9 +218,9 @@
   function makeErr(msg) { var e = new Error(msg); e.isExpected = true; return e; }
 
   function advance(game, seat, parsed) {
-    game.currentPlayer = (seat + 1) % 3;
-    // 若连续两家 pass，则最后出牌者重新自由出
-    if (game.passStreak >= 2) {
+    game.currentPlayer = nextSeatCounterClockwise(seat, game.players);   // 逆时针：我→右→上→左
+    // 若除最后出牌者外所有人都 pass，则最后出牌者重新自由出
+    if (game.passStreak >= game.players - 1) {
       game.lastPlay = null;
       game.passStreak = 0;
       // 新的一圈开始：清掉牌桌上的各家牌，重新累积
@@ -237,17 +257,24 @@
       game.multiplier *= 2; // 反春天
     }
 
-    // 结算
+    // 结算：1 地主 vs (players-1) 个农民。
+    // 地主赢：地主得 total×(players-1)，每个农民各扣 total
+    // 农民赢：地主扣 total×(players-1)，每个农民各得 total
     var base = BASE_SCORE;
     var total = base * game.multiplier;
+    var farmerCount = game.players - 1;
+    game.scores = [];
+    for (var p = 0; p < game.players; p++) game.scores.push(0);
     if (game.winnerRole === 'landlord') {
-      game.scores[game.landlord] = total * 2;
-      game.scores[(game.landlord + 1) % 3] = -total;
-      game.scores[(game.landlord + 2) % 3] = -total;
+      game.scores[game.landlord] = total * farmerCount;
+      for (var f = 0; f < game.players; f++) {
+        if (f !== game.landlord) game.scores[f] = -total;
+      }
     } else {
-      game.scores[game.landlord] = -total * 2;
-      game.scores[(game.landlord + 1) % 3] = total;
-      game.scores[(game.landlord + 2) % 3] = total;
+      game.scores[game.landlord] = -total * farmerCount;
+      for (var g = 0; g < game.players; g++) {
+        if (g !== game.landlord) game.scores[g] = total;
+      }
     }
 
     return {
@@ -267,6 +294,7 @@
   function getState(game) {
     return {
       phase: game.phase,
+      players: game.players,
       hands: game.hands,
       handRanks: game.hands.map(function (h) { return ranksOf(h); }),
       bottom: game.bottom,
@@ -281,7 +309,8 @@
       lastPlay: game.lastPlay,
       lastPlayRanks: game.lastPlay ? game.lastPlay.ranks : null,
       lastPlaySeat: game.lastPlay ? game.lastPlay.seat : -1,
-      lastPlays: game.lastPlays || [],   // 牌桌各家牌：lastPlays[0/1/2] = {cards,ranks,parsed} | null(不要)
+      lastPlays: game.lastPlays || [],   // 牌桌各家牌：lastPlays[i] = {cards,ranks,parsed} | null(不要)
+      discardedRanks: (game.discarded || []).slice().sort(cmpDesc), // 已出牌 rank（降序），供记牌
       multiplier: game.multiplier,
       bombs: game.bombs,
       humanSeat: game.humanSeat,

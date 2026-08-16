@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/home.css">
   <script src="js/theme.js"></script>
+  <script src="js/preload.js" defer></script>
   <style>
     /* 尽早应用字号，避免闪字 */
     html { font-size: var(--fs); }
@@ -35,6 +36,13 @@
         <button type="button" class="deck-btn" id="deckBtn1" data-deck="1">🂠 一副牌</button>
         <button type="button" class="deck-btn" id="deckBtn2" data-deck="2">🂡 两副牌</button>
       </div>
+      <!-- 人数选择：4 人玩法要用两副牌（1 地主 vs 3 农民） -->
+      <div class="deck-picker deck-picker--players" aria-label="选择几个人玩">
+        <span class="deck-picker__label">几个人玩？</span>
+        <button type="button" class="deck-btn" id="playersBtn3" data-players="3">3 人</button>
+        <button type="button" class="deck-btn" id="playersBtn4" data-players="4">4 人</button>
+      </div>
+      <p class="deck-picker__tip" id="playersTip" hidden>4 人玩法要用两副牌，选"两副牌"就能玩 4 人啦</p>
     </section>
 
     <nav class="home-entries" aria-label="主要功能">
@@ -72,6 +80,9 @@
 
     <section class="home-cta">
       <a class="btn btn--accent btn--big" href="play/index.html">🎮 现在就玩一局</a>
+      <div class="home-cta__row">
+        <a class="btn btn--ghost" href="play/history.html">📊 对局记录</a>
+      </div>
     </section>
   </main>
 
@@ -86,16 +97,40 @@
     // 牌数选择：一副牌 / 两副牌（记忆，进对局时读取）
     (function () {
       var deck = DDZStorage.get('deck', 1);
+      var players = DDZStorage.get('players', 3);
       var b1 = document.getElementById('deckBtn1');
       var b2 = document.getElementById('deckBtn2');
+      var p3 = document.getElementById('playersBtn3');
+      var p4 = document.getElementById('playersBtn4');
+      var tip = document.getElementById('playersTip');
       function setActive(d) {
         deck = d;
         b1.classList.toggle('active', d === 1);
         b2.classList.toggle('active', d === 2);
         DDZStorage.set('deck', d);
+        syncPlayers();
+      }
+      function setPlayers(n) {
+        players = n;
+        p3.classList.toggle('active', n === 3);
+        p4.classList.toggle('active', n === 4);
+        DDZStorage.set('players', n);
+        // 选了 4 人 → 自动切两副牌
+        if (n === 4 && deck === 1) setActive(2);
+        syncPlayers();
+      }
+      function syncPlayers() {
+        // 4 人玩法必须两副牌：一副牌时禁用 4 人
+        var can4 = deck === 2;
+        p4.disabled = !can4;
+        if (!can4 && players === 4) setPlayers(3);
+        tip.hidden = can4 || players !== 4;
+        p4.title = can4 ? '4 人玩法：1 个地主 vs 3 个农民' : '4 人玩法要用两副牌';
       }
       b1.addEventListener('click', function () { setActive(1); });
       b2.addEventListener('click', function () { setActive(2); });
+      p3.addEventListener('click', function () { setPlayers(3); });
+      p4.addEventListener('click', function () { setPlayers(4); });
       setActive(deck);
     })();
     // 学习进度
@@ -115,6 +150,54 @@
         fill.style.width = Math.round(completed / total * 100) + '%';
         text.textContent = '已完成 ' + completed + ' / ' + total + ' 课';
       }
+    })();
+
+    // 更新公告：只有"打开网站"时弹（直接打开/新标签页/浏览器重新打开），
+    // 从游戏、设置、对局记录等页面导航返回首页时【不弹】。
+    // 用 sessionStorage 标记：同一标签页会话内弹一次，站内返回不重弹；
+    // 新开标签页/重新打开浏览器 = 新会话 = 会再弹。
+    (function () {
+      var SHOWN_KEY = 'ddz_notice_shown_session';
+      function showNotice() {
+        // 若已有公告则不再重复弹
+        if (document.querySelector('.modal-backdrop')) return;
+        var bd = document.createElement('div');
+        bd.className = 'modal-backdrop';
+        bd.innerHTML =
+          '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="ddz-notice-title">' +
+            '<h2 class="modal__title" id="ddz-notice-title">✨ 更新公告 · V0.3 · 2026-08-16</h2>' +
+            '<div class="modal__body">' +
+              '<p style="margin:0 0 .6em;font-weight:700;">这次更新，给您带来：</p>' +
+              '<ul class="notice-list">' +
+                '<li><b>🎮 电脑更聪明了</b>——分 4 档难度：简单 / 普通 / 困难 / 大师，困难以上会记牌、会用炸弹时机、农民互相配合</li>' +
+                '<li><b>🂡 两副牌 4 人玩</b>——每人 25 张、1 个地主打 3 个农民，首页可选 3 人 / 4 人</li>' +
+                '<li><b>📊 对局记录</b>——每局打完自动记下来，胜负、倍数、得分都能回看</li>' +
+                '<li><b>🃏 手牌更清楚</b>——牌多时每张露得多，还能一键按张数排序（炸弹靠左）</li>' +
+                '<li><b>🔔 轮到您才显示按钮</b>——没到您时不挡住牌，轮到您才出现</li>' +
+                '<li><b>⚡ 打开就缓存牌面</b>——打开网站自动缓存全部牌面，进对局秒开不卡图</li>' +
+              '</ul>' +
+              '<p class="notice-version">难度随时可调：首页 → 设置，或对局中点右上角 ⚙️</p>' +
+            '</div>' +
+            '<div class="modal__actions"><button type="button" class="btn btn--accent" id="ddzNoticeOk">好的，开始玩</button></div>' +
+          '</div>';
+        document.body.appendChild(bd);
+        function close() {
+          bd.classList.remove('show');
+          setTimeout(function () { if (bd.parentNode) bd.parentNode.removeChild(bd); }, 250);
+        }
+        document.getElementById('ddzNoticeOk').addEventListener('click', close);
+        bd.addEventListener('click', function (e) { if (e.target === bd) close(); });
+        requestAnimationFrame(function () { bd.classList.add('show'); });
+      }
+      // 判断是否"本次打开网站"：同一会话内已弹过 → 不弹（站内返回的场景）
+      var shown = false;
+      try { shown = sessionStorage.getItem(SHOWN_KEY) === '1'; } catch (e) {}
+      if (!shown) {
+        showNotice();
+        try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch (e) {}
+      }
+      // BFCache 恢复（前进/后退回首页，快照不重跑脚本）：不弹——
+      // 能触发恢复说明之前就在这个会话里访问过首页，属于"站内返回"。
     })();
   </script>
 </body>

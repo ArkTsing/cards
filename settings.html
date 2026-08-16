@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/home.css">
   <script src="js/theme.js"></script>
+  <script src="js/preload.js" defer></script>
   <style>html { font-size: var(--fs); }</style>
 </head>
 <body>
@@ -77,6 +78,35 @@
       </div>
     </section>
 
+    <section class="settings-group" aria-label="电脑难度">
+      <div class="settings-group__title">🎮 电脑难度</div>
+      <div class="card">
+        <div class="settings-row">
+          <div class="settings-row__label">电脑有多强？
+            <span class="settings-row__hint">打牌时随时可以在游戏里切换；新的一局就按新难度来</span>
+          </div>
+          <div class="difficulty-levels" id="difficultyLevels" role="radiogroup" aria-label="难度档位">
+            <button type="button" class="difficulty-level" data-level="easy" role="radio" aria-checked="false">
+              <span class="df-name">😊 简单</span>
+              <span class="df-desc">让着您打，少用炸弹</span>
+            </button>
+            <button type="button" class="difficulty-level" data-level="normal" role="radio" aria-checked="false">
+              <span class="df-name">🙂 普通</span>
+              <span class="df-desc">棋逢对手</span>
+            </button>
+            <button type="button" class="difficulty-level" data-level="hard" role="radio" aria-checked="false">
+              <span class="df-name">😐 困难</span>
+              <span class="df-desc">会记牌、会用炸弹时机</span>
+            </button>
+            <button type="button" class="difficulty-level" data-level="master" role="radio" aria-checked="false">
+              <span class="df-name">😎 大师</span>
+              <span class="df-desc">最强配合，很有挑战</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="settings-group" aria-label="学习进度">
       <div class="settings-group__title">📚 学习进度</div>
       <div class="card">
@@ -131,6 +161,25 @@
       });
     });
     renderLevels();
+
+    // 电脑难度（4 档，存 ddz_difficulty）
+    var diffEl = document.getElementById('difficultyLevels');
+    var currentDiff = DDZStorage.get('difficulty', 'normal');
+    function renderDiff() {
+      diffEl.querySelectorAll('.difficulty-level').forEach(function (btn) {
+        var active = btn.dataset.level === currentDiff;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+    }
+    diffEl.querySelectorAll('.difficulty-level').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        currentDiff = btn.dataset.level;
+        DDZStorage.set('difficulty', currentDiff);
+        renderDiff();
+      });
+    });
+    renderDiff();
 
     // 语音开关
     var voiceSwitch = document.getElementById('voiceSwitch');

@@ -20,6 +20,7 @@
       back.src = C.backImg();
       back.alt = '牌背';
       back.loading = 'lazy';
+      back.decoding = 'async';
       back.draggable = false;
       el.appendChild(back);
       return el;
@@ -28,6 +29,7 @@
     img.src = card.img;
     img.alt = C.RANK_LABEL[card.rank] + (C.SUIT_SYMBOL[card.suit] || '');
     img.loading = 'lazy';
+    img.decoding = 'async';   // 图片异步解码，避免解码阻塞主线程
     img.draggable = false;
     img.onerror = function () {
       // 图片加载失败兜底：显示文字角标

@@ -108,6 +108,8 @@
   padding: 0 1.2em 3em;
 }
 .home-cta .btn { font-size: 1.45em; padding: .8em 2.6em; }
+.home-cta__row { margin-top: .9em; }
+.home-cta__row .btn { font-size: 1em; padding: .5em 1.8em; }
 
 /* ---------- 牌数选择（一副牌 / 两副牌） ---------- */
 .home-deck {
@@ -149,6 +151,21 @@
   color: #fff;
 }
 .deck-btn:active { transform: scale(.96); }
+
+/* 人数选择（3人 / 4人）：复用牌数选择样式，另起一行 */
+.deck-picker--players { margin-top: .7em; }
+.deck-picker__tip {
+  margin: .5em 0 0;
+  font-size: .92em;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+.deck-btn:disabled {
+  background: #EFF3F0;
+  color: #A8BCAF;
+  border-color: #E0E8E2;
+  cursor: not-allowed;
+}
 
 @media (max-width: 560px) {
   .deck-picker { flex-wrap: wrap; justify-content: center; border-radius: 18px; }
@@ -223,6 +240,38 @@
 }
 .fontsize-preview .sample { font-weight: 800; }
 
+/* 难度档位选择（4 档） */
+.difficulty-levels {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .6em;
+  width: 100%;
+  max-width: 560px;
+}
+.difficulty-level {
+  min-height: 84px;
+  border: 3px solid #D5E0D8;
+  background: #fff;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .25em;
+  padding: .5em .6em;
+  transition: border-color .15s, background .15s;
+  text-align: center;
+}
+.difficulty-level .df-name { font-weight: 800; font-size: 1.05em; color: var(--text); }
+.difficulty-level .df-desc { font-size: .82em; color: var(--text-soft); line-height: 1.4; }
+.difficulty-level.active {
+  border-color: var(--primary);
+  background: #EAF5EE;
+}
+.difficulty-level.active .df-name { color: var(--primary-dark); }
+.difficulty-level.active .df-desc { color: var(--primary-dark); }
+
 /* 开关 */
 .switch {
   position: relative;
@@ -262,6 +311,29 @@
 
 /* 关于 */
 .about-box { font-size: .95em; color: var(--text-soft); line-height: 1.8; }
+
+/* ---------- 更新公告 ---------- */
+.notice-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #3A2400;
+  font-weight: 800;
+  font-size: .85em;
+  border-radius: 999px;
+  padding: .1em .7em;
+  margin-left: .4em;
+  vertical-align: middle;
+}
+.notice-list { margin: .2em 0; padding-left: 1.3em; }
+.notice-list li { margin: .35em 0; font-size: 1.02em; line-height: 1.6; }
+.notice-list li b { color: var(--primary-dark); }
+.notice-version {
+  font-size: .9em;
+  color: var(--text-soft);
+  font-weight: 700;
+  margin-top: .4em;
+}
+.modal__actions .btn { min-width: 120px; }
 
 @media (max-width: 560px) {
   .fontsize-levels { grid-template-columns: repeat(2, 1fr); }

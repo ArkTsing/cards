@@ -64,14 +64,14 @@ function makeCardEl(cardId, handlers) {
   el.dataset.cardh = '87';
   el.classList.toggle('selected', !!handlers.selected[cardId]);
 
-  // 触屏绑定（与页面逐字一致）
+  // 触屏绑定（与页面逐字一致；非自己回合也可预选准备，AI 思考中也能预选）
   var touchStartX = 0, touchStartY = 0, touchMoved = false;
   el.addEventListener('touchstart', function (e) {
     var t = e.changedTouches && e.changedTouches[0];
     touchStartX = t ? t.clientX : 0;
     touchStartY = t ? t.clientY : 0;
     touchMoved = false;
-    if (handlers.isPlayerTurn() && !handlers.thinking && !el.classList.contains('selected')) {
+    if (handlers.phase === 'playing' && !el.classList.contains('selected')) {
       handlers.cardTransform(el, true);
     }
   });
@@ -87,7 +87,7 @@ function makeCardEl(cardId, handlers) {
   });
   function touchEnd() {
     if (touchMoved) return;
-    if (handlers.isPlayerTurn() && !handlers.thinking && !el.classList.contains('selected')) {
+    if (handlers.phase === 'playing' && !el.classList.contains('selected')) {
       handlers.cardTransform(el, false);
     }
   }
@@ -98,7 +98,7 @@ function makeCardEl(cardId, handlers) {
   });
   el.addEventListener('click', function () {
     if (touchMoved) { touchMoved = false; return; }
-    if (!handlers.isPlayerTurn() || handlers.thinking) return;
+    if (handlers.phase !== 'playing') return;   // 非出牌阶段不选；非自己回合可预选
     if (handlers.selected[cardId]) { delete handlers.selected[cardId]; el.classList.remove('selected'); }
     else { handlers.selected[cardId] = true; el.classList.add('selected'); }
     handlers.layoutCards();
@@ -112,7 +112,7 @@ console.log('== 触屏交互测试 ==');
 t('点按(无滑动)：touchstart 放大 → touchend 复位 → click 选牌', function () {
   const selected = {}, transforms = [];
   const h = {
-    selected: selected, thinking: false,
+    selected: selected, phase: 'playing',
     isPlayerTurn: () => true,
     cardTransform: (el, hover) => transforms.push(hover),
     layoutCards: () => {}, updatePlayButton: () => { h.pressed = true; }
@@ -128,7 +128,7 @@ t('点按(无滑动)：touchstart 放大 → touchend 复位 → click 选牌', 
 t('点按已选中的牌：不触发放大，click 取消选中', function () {
   const selected = { c2: true }, transforms = [];
   const h = {
-    selected: selected, thinking: false,
+    selected: selected, phase: 'playing',
     isPlayerTurn: () => true,
     cardTransform: (el, hover) => transforms.push(hover),
     layoutCards: () => {}, updatePlayButton: () => {}
@@ -143,7 +143,7 @@ t('点按已选中的牌：不触发放大，click 取消选中', function () {
 t('滑动超过阈值：放大复位，click 被抑制(不选牌)', function () {
   const selected = {}, transforms = [];
   const h = {
-    selected: selected, thinking: false,
+    selected: selected, phase: 'playing',
     isPlayerTurn: () => true,
     cardTransform: (el, hover) => transforms.push(hover),
     layoutCards: () => {}, updatePlayButton: () => { h.pressed = true; }
@@ -159,7 +159,7 @@ t('滑动超过阈值：放大复位，click 被抑制(不选牌)', function () 
 t('微小抖动(位移≤10)：不算滑动，正常选牌', function () {
   const selected = {}, transforms = [];
   const h = {
-    selected: selected, thinking: false,
+    selected: selected, phase: 'playing',
     isPlayerTurn: () => true,
     cardTransform: (el, hover) => transforms.push(hover),
     layoutCards: () => {}, updatePlayButton: () => {}
@@ -169,25 +169,40 @@ t('微小抖动(位移≤10)：不算滑动，正常选牌', function () {
   assert(el.classList.contains('selected'), '微小抖动应仍算点击，正常选牌');
 });
 
-t('未轮到玩家/思考中：touchstart 不放大，click 不选牌', function () {
+t('未轮到玩家：允许预选（touchstart 放大，click 选牌）', function () {
   const selected = {}, transforms = [];
   const h = {
-    selected: selected, thinking: false,
+    selected: selected, phase: 'playing',
     isPlayerTurn: () => false,
     cardTransform: (el, hover) => transforms.push(hover),
     layoutCards: () => {}, updatePlayButton: () => { h.pressed = true; }
   };
   const el = makeCardEl('c5', h);
   tap(el, { x0: 10, y0: 10 });
-  assert(transforms.length === 0, '非玩家回合按下不应放大');
-  assert(!el.classList.contains('selected'), '非玩家回合 click 不应选牌');
-  assert(!h.pressed, '非玩家回合不应触发按钮更新');
+  assert(transforms[0] === true, '非玩家回合按下也应放大（预选准备）');
+  assert(el.classList.contains('selected'), '非玩家回合 click 应能预选');
+  assert(h.pressed, '非玩家回合预选也应触发按钮更新');
+});
+
+t('非出牌阶段（叫分/结算）：touchstart 不放大，click 不选牌', function () {
+  const selected = {}, transforms = [];
+  const h = {
+    selected: selected, phase: 'bidding',
+    isPlayerTurn: () => true,
+    cardTransform: (el, hover) => transforms.push(hover),
+    layoutCards: () => {}, updatePlayButton: () => { h.pressed = true; }
+  };
+  const el = makeCardEl('c6b', h);
+  tap(el, { x0: 10, y0: 10 });
+  assert(transforms.length === 0, '非出牌阶段按下不应放大');
+  assert(!el.classList.contains('selected'), '非出牌阶段 click 不应选牌');
+  assert(!h.pressed, '非出牌阶段不应触发按钮更新');
 });
 
 t('touchcancel：与 touchend 一样复位且不选牌', function () {
   const selected = {}, transforms = [];
   const h = {
-    selected: selected, thinking: false,
+    selected: selected, phase: 'playing',
     isPlayerTurn: () => true,
     cardTransform: (el, hover) => transforms.push(hover),
     layoutCards: () => {}, updatePlayButton: () => {}

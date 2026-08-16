@@ -127,25 +127,32 @@
     return a;
   }
 
-  // 发牌：返回 { hands, bottom, perHand, bottomCount }
+  // 发牌：返回 { hands, bottom, perHand, bottomCount, players }
   // nDeck = 1 → 3 手各 17 张，底牌 3 张（54 张牌）
   // nDeck = 2 → 3 手各 34 张，底牌 6 张（108 张牌）
-  function deal(nDeck) {
+  // players = 4（四人两副）：每人 25 张，底牌 8 张（108 张牌，必须两副）
+  //   1 地主 vs 3 农民：地主 25 + 8 = 33 张
+  function deal(nDeck, players) {
     nDeck = nDeck || 1;
+    players = players === 4 ? 4 : 3;
+    if (players === 4) nDeck = 2; // 四人玩法必须用两副牌（108 张）
     var deck = shuffle(makePool(nDeck));
     var total = deck.length;
-    var perHand = nDeck === 2 ? 34 : 17;
-    var bottomCount = nDeck === 2 ? 6 : 3;
-    var dealCount = perHand * 3;
-    var hands = [[], [], []];
-    for (var i = 0; i < dealCount; i++) hands[i % 3].push(deck[i]);
+    var perHand, bottomCount;
+    if (players === 4) { perHand = 25; bottomCount = 8; }
+    else { perHand = nDeck === 2 ? 34 : 17; bottomCount = nDeck === 2 ? 6 : 3; }
+    var dealCount = perHand * players;
+    var hands = [];
+    for (var p = 0; p < players; p++) hands.push([]);
+    for (var i = 0; i < dealCount; i++) hands[i % players].push(deck[i]);
     hands.forEach(function (h) { h.sort(cmpAsc); });
     return {
       hands: hands,
       bottom: deck.slice(dealCount).sort(cmpAsc),
       perHand: perHand,
       bottomCount: bottomCount,
-      nDeck: nDeck
+      nDeck: nDeck,
+      players: players
     };
   }
 

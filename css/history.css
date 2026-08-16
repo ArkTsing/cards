@@ -1,0 +1,86 @@
+/* ==========================================================================
+   history.css — 对局记录页样式
+   ========================================================================== */
+
+/* ---------- 统计卡 ---------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: .8em;
+  margin-bottom: 1.2em;
+}
+.stat-card {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: .9em .6em;
+  text-align: center;
+}
+.stat-num {
+  font-size: 1.7em;
+  font-weight: 900;
+  color: var(--primary-dark);
+  line-height: 1.2;
+}
+.stat-card--win .stat-num { color: var(--primary); }
+.stat-card--lose .stat-num { color: var(--danger); }
+.stat-label { font-size: .88em; color: var(--text-soft); font-weight: 700; margin-top: .1em; }
+
+/* ---------- 记录列表 ---------- */
+.history-list {
+  padding: .6em .8em;
+  display: flex;
+  flex-direction: column;
+  gap: .55em;
+}
+.history-empty {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 1.05em;
+  line-height: 1.8;
+  padding: 1.6em .5em;
+}
+.history-item {
+  border-radius: 12px;
+  padding: .55em .8em;
+  border-left: 6px solid var(--primary);
+  background: #F5FAF7;
+}
+.history-item.item--win { border-left-color: var(--primary); background: #EFF8F1; }
+.history-item.item--lose { border-left-color: var(--danger); background: #FDF1F1; }
+.item-main {
+  display: flex;
+  align-items: center;
+  gap: .6em;
+  font-weight: 800;
+}
+.item-result {
+  min-width: 2.2em;
+  text-align: center;
+  border-radius: 999px;
+  padding: .05em .5em;
+  font-size: .95em;
+  color: #fff;
+  background: var(--primary);
+}
+.item--lose .item-result { background: var(--danger); }
+.item-role { color: var(--text); }
+.item-score { margin-left: auto; font-size: 1.05em; color: var(--primary-dark); }
+.item--lose .item-score { color: var(--danger); }
+.item-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35em .9em;
+  margin-top: .3em;
+  font-size: .88em;
+  color: var(--text-soft);
+}
+.item-time { margin-top: .25em; font-size: .82em; color: var(--text-soft); }
+
+/* 操作按钮 */
+.history-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  margin-top: 1.2em;
+}

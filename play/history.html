@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="斗地主对局记录：胜负、得分、倍数都记在您自己的电脑里。">
+  <title>对局记录 · 斗地主学堂</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/home.css">
+  <link rel="stylesheet" href="../css/history.css">
+  <script src="../js/theme.js"></script>
+  <script src="../js/preload.js" defer></script>
+  <style>html { font-size: var(--fs); }</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar__brand" href="../index.html">🃏 斗地主 <span class="suit-dot">学堂</span></a>
+    <div class="topbar__actions"><div id="topbarFontCtrl"></div></div>
+  </header>
+
+  <nav class="breadcrumb"><a href="../index.html">← 返回首页</a></nav>
+
+  <main class="settings-wrap">
+    <h1 style="color:var(--primary-dark);">📊 对局记录</h1>
+    <p style="color:var(--text-soft);margin-top:-.4em;">每局打完自动记在这里，只存在您自己的电脑里，不会上传。</p>
+
+    <!-- 统计卡 -->
+    <section class="stats-grid" id="statsGrid" aria-label="对局统计">
+      <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-label">总场次</div></div>
+      <div class="stat-card stat-card--win"><div class="stat-num" id="statWins">0</div><div class="stat-label">胜</div></div>
+      <div class="stat-card stat-card--lose"><div class="stat-num" id="statLosses">0</div><div class="stat-label">负</div></div>
+      <div class="stat-card"><div class="stat-num" id="statRate">–</div><div class="stat-label">胜率</div></div>
+      <div class="stat-card"><div class="stat-num" id="statBest">1</div><div class="stat-label">最高倍数</div></div>
+    </section>
+
+    <!-- 记录列表 -->
+    <section class="history-list card" id="historyList" aria-label="对局记录列表"></section>
+
+    <div class="history-actions">
+      <button type="button" class="btn btn--ghost" id="btnBack">🏠 返回首页</button>
+      <button type="button" class="btn btn--danger" id="btnClear">🧹 清空记录</button>
+    </div>
+  </main>
+
+  <script src="../js/storage.js"></script>
+  <script>
+    DDZFont.buildTopbarCtrl(document.getElementById('topbarFontCtrl'));
+
+    var DIFF_LABEL = { easy: '简单', normal: '普通', hard: '困难', master: '大师' };
+    // 注意：不能叫 history——会与浏览器原生 window.history(只读) 冲突
+    var records = DDZStorage.get('history', []);
+
+    function fmtTime(t) {
+      var d = new Date(t);
+      function p(n) { return n < 10 ? '0' + n : '' + n; }
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    function renderStats() {
+      var wins = records.filter(function (h) { return h.win; }).length;
+      var losses = records.length - wins;
+      var best = records.reduce(function (m, h) { return Math.max(m, h.multiplier || 1); }, 1);
+      document.getElementById('statTotal').textContent = records.length;
+      document.getElementById('statWins').textContent = wins;
+      document.getElementById('statLosses').textContent = losses;
+      document.getElementById('statRate').textContent = records.length ? Math.round(wins / records.length * 100) + '%' : '–';
+      document.getElementById('statBest').textContent = '×' + best;
+    }
+
+    function renderList() {
+      var listEl = document.getElementById('historyList');
+      if (!records.length) {
+        listEl.innerHTML = '<div class="history-empty">还没有对局记录。<br>去玩一局，打完后就会记在这里啦 🎮</div>';
+        return;
+      }
+      var html = '';
+      records.forEach(function (h) {
+        var cls = h.win ? 'item--win' : 'item--lose';
+        var winText = h.win ? '胜' : '负';
+        var deckText = h.nDeck === 2 ? '两副' : '一副';
+        var playersText = (h.players === 4 ? '4人' : '3人');
+        var springText = h.spring ? ' 🌸春天' : '';
+        html +=
+          '<div class="history-item ' + cls + '">' +
+            '<div class="item-main">' +
+              '<span class="item-result">' + winText + '</span>' +
+              '<span class="item-role">' + esc(h.myRole || '农民') + '</span>' +
+              '<span class="item-score">' + (h.score >= 0 ? '+' : '') + (h.score == null ? 0 : h.score) + ' 分</span>' +
+            '</div>' +
+            '<div class="item-sub">' +
+              '<span>倍数 ×' + (h.multiplier || 1) + '</span>' +
+              '<span>' + (h.bombs ? '💣×' + h.bombs : '') + '</span>' +
+              '<span>' + deckText + '</span>' +
+              '<span>' + playersText + '</span>' +
+              '<span>' + (DIFF_LABEL[h.difficulty] || '普通') + '</span>' +
+              '<span>' + springText + '</span>' +
+            '</div>' +
+            '<div class="item-time">' + fmtTime(h.t) + '</div>' +
+          '</div>';
+      });
+      listEl.innerHTML = html;
+    }
+
+    document.getElementById('btnBack').addEventListener('click', function () { location.href = '../index.html'; });
+    document.getElementById('btnClear').addEventListener('click', function () {
+      if (confirm('确定要清空所有对局记录吗？清空后不能找回。')) {
+        DDZStorage.set('history', []);
+        records = [];
+        renderStats();
+        renderList();
+        alert('对局记录已清空。');
+      }
+    });
+
+    renderStats();
+    renderList();
+  </script>
+</body>
+</html>
