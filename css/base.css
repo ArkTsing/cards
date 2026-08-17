@@ -36,6 +36,11 @@
 /* ---------- 基础 ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* HTML 的 hidden 属性必须一律生效——任何 display 值（如 flex）都会覆盖 hidden，
+   导致「未确定地主前的底牌条」「3人局的顶部牌位」等本应隐藏的元素漏出来。
+   这是全局规则，优先级最高（对局页 JS 用 el.hidden 显隐都靠它） */
+[hidden] { display: none !important; }
+
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;

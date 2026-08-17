@@ -1,12 +1,11 @@
 /* ==========================================================================
    ai.js — 电脑叫分与出牌 AI
    双端可用（浏览器 window.DDZAI / Node module.exports）
-   策略目标：下得了、有策略、不坑长辈。
-   难度分级（4 档，逐级聪明）：
-   - easy   简单：让着您打，几乎不用炸弹
-   - normal 普通：现在的水准（默认）
-   - hard   困难：会记牌、会用炸弹时机、农民配合
-   - master 大师：最优出牌 + 农民深度配合
+   策略目标：下得了、有策略、不坑长辈。难度分配向真人打牌逻辑靠拢：
+   - easy   简单（1档）：适合新手/长辈——让着您打，几乎不用炸弹、不抢叫、有得压就压
+   - normal 普通（2档）：适合新手/长辈——稳当不犀利，会留大牌控场，偶尔放水
+   - hard   困难（3档）：普通/困难真人水平——会记牌、会用炸弹时机、农民配合、拆大牌谨慎
+   - master 大师（4档）：常人高手水平——记牌控场、收尾果断、关键时刻稳准狠、农民深度配合
    ========================================================================== */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -27,10 +26,10 @@
   //   teamPlay  ：农民配合 none / basic / deep
   //   breakPairs：是否避免拆对（出单张时）
   var PROFILES = {
-    easy:   { level: 0, stablePick: .55, memory: false, bombUse: 'rare',    teamPlay: 'none', breakPairs: false },
-    normal: { level: 1, stablePick: .70, memory: false, bombUse: 'current', teamPlay: 'basic', breakPairs: false },
-    hard:   { level: 2, stablePick: .80, memory: true,  bombUse: 'smart',   teamPlay: 'deep',  breakPairs: false },
-    master: { level: 3, stablePick: .85, memory: true,  bombUse: 'optimal', teamPlay: 'deep',  breakPairs: true }
+    easy:   { level: 0, stablePick: .60, memory: false, bombUse: 'rare',    teamPlay: 'none', breakPairs: false },
+    normal: { level: 1, stablePick: .72, memory: false, bombUse: 'current', teamPlay: 'basic', breakPairs: false },
+    hard:   { level: 2, stablePick: .82, memory: true,  bombUse: 'smart',   teamPlay: 'deep',  breakPairs: true },
+    master: { level: 3, stablePick: .95, memory: true,  bombUse: 'optimal', teamPlay: 'deep',  breakPairs: true }
   };
   function profile(d) { return PROFILES[d] || PROFILES.normal; }
 
@@ -47,6 +46,13 @@
       left[k] = Math.max(0, total[k] - (seen[k] || 0));
     });
     return left;
+  }
+
+  // 场上还没出过的 A/2/小王/大王 总数（memory 档用）：
+  // 越小说明大牌已被打掉很多 → 我手里的 2/王 越安全，可以放心作收尾/控场牌
+  function bigsLeft(hand, discarded, nDeck) {
+    var h = highLeft(hand, discarded, nDeck);
+    return (h[14] || 0) + (h[15] || 0) + (h[16] || 0) + (h[17] || 0);
   }
 
   // ---------- 手牌强度评估 ----------
@@ -113,6 +119,18 @@
     return base + (typePenalty[parsed.type] || 0) + bombPenalty;
   }
 
+  // 收尾价值：这手牌能让"剩余手"更好打就加分。
+  //   - 能一把出完：最大优先（真人最后一手绝不会留着不打）
+  //   - 出单张拆了对/三：留单牌残骸，扣分（拆结构要谨慎）
+  function shedAdjust(ranks, hand, nDeck, hc) {
+    var parsed = C.parseCards(ranks, nDeck);
+    if (!parsed) return 0;
+    var remaining = hand.length - ranks.length;
+    if (remaining === 0) return -40;
+    if (parsed.type === 'single' && (hc[parsed.mainRank] || 0) > 1) return 12;
+    return 0;
+  }
+
   // 多样化选牌：稳定优先，但在"足够好"的候选里偶尔换花样。
   // stable 表示选最优的倾向（越高越稳定）。所有候选都合法 → 安全。
   function variedPick(sorted, rng, stable) {
@@ -132,13 +150,15 @@
     return hc;
   }
 
-  // 首出候选（升序打分）。opts: { profile }
+  // 首出候选（升序打分）。opts: { profile, discarded }
   function leadCandidates(handRanks, nDeck, opts) {
     opts = opts || {};
     var prof = opts.profile || PROFILES.normal;
     var moves = C.generateMoves(handRanks, nDeck);
     var hc = rankCounts(handRanks);
     var cands = [];
+    // 记牌：大牌还很金贵时，手里的 2/王 更要留作控场/收尾，不要轻易单张打出
+    var bl = (prof.memory && opts.discarded) ? bigsLeft(handRanks, opts.discarded, nDeck) : null;
     moves.forEach(function (m) {
       var parsed = C.parseCards(m, nDeck);
       if (!parsed) return;
@@ -146,7 +166,7 @@
       if (parsed.type === 'bomb' || parsed.type === 'rocket') return;
       // 单张不先出最大的单（A、2、王留给收尾），除非手里只剩单
       if (parsed.type === 'single' && parsed.mainRank >= 14 && handRanks.length > 2) return;
-      var sc = moveScore(m, nDeck);
+      var sc = moveScore(m, nDeck) + shedAdjust(m, handRanks, nDeck, hc);
       // hard/master：优先出复杂结构（顺子/连对/飞机），一次减掉多手
       if (prof.level >= 2 && (parsed.type === 'straight' || parsed.type === 'straight_pair' ||
           parsed.type === 'plane_pure' || parsed.type === 'plane_one' || parsed.type === 'plane_pair')) {
@@ -155,6 +175,10 @@
       // master：先出单张时不拆对/不拆三
       if (prof.breakPairs && parsed.type === 'single' && hc[parsed.mainRank] > 1) {
         sc += 5;
+      }
+      // memory 档：场上大牌已少（2/王 更值钱）→ 这些单张大牌更不该先出
+      if (bl != null && parsed.type === 'single' && parsed.mainRank >= 15) {
+        sc += (bl <= 2 ? 8 : (bl <= 4 ? 4 : 0));
       }
       cands.push({ ranks: m, score: sc });
     });
@@ -172,7 +196,7 @@
   function pickBestLead(handRanks, opts) {
     opts = opts || {};
     var prof = opts.profile || PROFILES.normal;
-    var sorted = leadCandidates(handRanks, opts.nDeck, { profile: prof });
+    var sorted = leadCandidates(handRanks, opts.nDeck, { profile: prof, discarded: opts.discarded });
     if (opts.variety === false) return sorted[0] || null;
     return variedPick(sorted, opts.rng, prof.stablePick);
   }
@@ -200,10 +224,11 @@
     var oppLeft = opts.oppLeft;
     if (oppLeft == null) oppLeft = 99;
     var hc = rankCounts(handRanks);
+    var bl = (prof.memory && opts.discarded) ? bigsLeft(handRanks, opts.discarded, nDeck) : null;
     var cands = [];
     beats.forEach(function (m) {
       var parsed = C.parseCards(m, nDeck);
-      var sc = moveScore(m, nDeck);
+      var sc = moveScore(m, nDeck) + shedAdjust(m, handRanks, nDeck, hc);
       var remaining = handRanks.length - m.length;
       if (remaining === 0) sc -= 30; // 能一次出完优先
       if (oppLeft <= 2) sc -= 6;     // 对手快走：压住优先
@@ -215,6 +240,10 @@
       if (prof.level >= 2 && remaining <= 3) sc -= 4;
       // master：跟单张时尽量不拆对
       if (prof.breakPairs && parsed.type === 'single' && hc[parsed.mainRank] > 1) sc += 4;
+      // memory 档：场上大牌已少 → 别拿 2/王 去压普通牌（留着控场）
+      if (bl != null && parsed.type === 'single' && parsed.mainRank >= 15) {
+        sc += (bl <= 2 ? 8 : (bl <= 4 ? 4 : 0));
+      }
       cands.push({ ranks: m, score: sc });
     });
     cands.sort(function (a, b) { return a.score - b.score; });
@@ -229,13 +258,13 @@
     var oppLeft = ctx.playerCounts && ctx.lastPlayerIndex != null
       ? ctx.playerCounts[ctx.lastPlayerIndex]
       : (opts.oppLeft != null ? opts.oppLeft : 99);
-    var sorted = followCandidates(handRanks, givenRanks, opts.nDeck, { profile: prof, oppLeft: oppLeft });
+    var sorted = followCandidates(handRanks, givenRanks, opts.nDeck, { profile: prof, oppLeft: oppLeft, discarded: ctx.discarded });
     if (!sorted.length) return null;
     if (opts.variety === false) return sorted[0];
     return variedPick(sorted, opts.rng, prof.stablePick);
   }
 
-  // 判断这一手要不要过（不压）。ctx 含完整局面信息（roles/playerCounts 等）。
+  // 判断这一手要不要过（不压）。ctx 含完整局面信息（roles/playerCounts/discarded 等）。
   function shouldPass(ctx, beats, given, prof) {
     var hand = ctx.handRanks || [];
     var nDeck = ctx.nDeck === 2 ? 2 : 1;
@@ -248,24 +277,25 @@
 
     if (!beats || !beats.length) return true;  // 没得压
 
-    // ---- 队友出的牌：原则上不压 ----
+    // ---- 队友出的牌：原则上不压，除非能一把走完 ----
     if (myRole === 'farmer' && lastRole === 'farmer') {
       if (canFinish) return false;  // 我能一次出完 → 出（农民赢）
-      if (ctx.teammateLastCount != null && ctx.teammateLastCount <= 3) return true; // 队友快走 → 放
-      // 地主快走 → 压住，不能让地主溜走
+      if (ctx.teammateLastCount != null && ctx.teammateLastCount <= 2) return true; // 队友马上走 → 放
+      // 地主快走 → 压住队友也不行，地主才是共同的敌人；看地主剩几张
       var landlordCount = 99;
       for (var i = 0; i < roles.length; i++) {
         if (roles[i] === 'landlord' && ctx.playerCounts) landlordCount = Math.min(landlordCount, ctx.playerCounts[i]);
       }
-      if (landlordCount <= 2) return false;
+      if (landlordCount <= 2) return false;   // 地主快走了，别让队友先出 → 我来压着
       return true;  // 其余情况都不压队友（省牌给队友收尾）
     }
 
     // ---- 对手出的牌 ----
     var oppCount = ctx.playerCounts && lastSeat != null ? ctx.playerCounts[lastSeat] : 99;
     if (canFinish) return false;
-    if (oppCount <= 2) return false;      // 对手快走：能压就压（含炸弹）
-    if (hand.length <= 2) return false;   // 我快走：压
+    if (oppCount <= 3) return false;          // 对手剩≤3张：必须拦（真人：快走必压，含炸弹）
+    if (oppCount <= 5 && prof.level >= 2) return false; // hard/master：剩5张也尽量拦
+    if (hand.length <= 3) return false;        // 我快走：压
 
     var hasBombOnly = beats.every(function (m) {
       var p = C.parseCards(m, nDeck);
@@ -277,10 +307,11 @@
       return false;
     }
 
-    if (prof.level === 0) return false;   // easy 有得压就压（让着打）
+    // easy 有得压就压（让着打）；normal 也压，给老人陪练感
+    if (prof.level <= 1) return false;
 
-    // hard/master：只能用 2/王 去压，且对手牌还多 → 留控场牌
-    if (prof.level >= 2 && oppCount > 4) {
+    // hard/master：对手牌还多时，用普通小牌压合适；只能用大牌压且对手牌多 → 留控场
+    if (oppCount > 6) {
       var minFollowRank = Infinity;
       beats.forEach(function (m) {
         var p = C.parseCards(m, nDeck);
@@ -306,10 +337,14 @@
       var given = C.parseCards(last, nDeck);
       var beats = C.findBeats(hand, last, nDeck);
       if (shouldPass(ctx, beats, given, prof)) return null;
-      return pickBestFollow(hand, last, { rng: seatRng, nDeck: nDeck, profile: prof, ctx: ctx });
+      // 能一把走完 → 绝不犹豫（真人最后一手必出能赢的组合）
+      var canFinish = beats.some(function (m) { return m.length === hand.length; });
+      return pickBestFollow(hand, last, { rng: seatRng, nDeck: nDeck, profile: prof, ctx: ctx, variety: canFinish ? false : undefined });
     }
     // 首出/自由出
-    return pickBestLead(hand, { rng: seatRng, nDeck: nDeck, profile: prof });
+    var opts = { rng: seatRng, nDeck: nDeck, profile: prof, discarded: ctx.discarded };
+    if (hand.length <= 6) opts.variety = false;   // 收尾阶段不犹豫：直接出最可能一把走完的
+    return pickBestLead(hand, opts);
   }
 
   // 叫地主
@@ -361,6 +396,7 @@
     diffLevel: diffLevel,
     profile: profile,
     highLeft: highLeft,
+    bigsLeft: bigsLeft,
     handStrength: handStrength,
     decideBid: decideBid,
     decidePlay: decidePlay,

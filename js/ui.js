@@ -13,6 +13,7 @@
     el.type = 'button';
     el.className = 'poker-card';
     el.dataset.cardId = card.id;
+    el.dataset.uid = card.uid;   // 拖选/选中都按 uid（两副牌同点不同张）
     el.dataset.rank = String(card.rank);
     if (opts.faceDown) {
       el.classList.add('poker-card--down');

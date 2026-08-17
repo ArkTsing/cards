@@ -260,7 +260,7 @@ body.game-page--four .game-body {
   grid-area: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: .35em;
   min-width: 0;
@@ -283,14 +283,15 @@ body.game-page--four .game-body {
   flex-wrap: wrap;
   gap: .3em;
   min-height: 96px;
+  /* 玩家出的牌显示在自己面前：靠下贴近玩家区 */
+  margin-top: auto;
 }
 .center-cards .poker-card {
   width: 64px;
   height: 92px;
   border-radius: 8px;
   box-shadow: 0 3px 8px rgba(0,0,0,.35);
-}
-.center-label {
+}.center-label {
   font-size: .9em;
   color: rgba(255,255,255,.95);
   background: rgba(0,0,0,.35);
@@ -302,15 +303,29 @@ body.game-page--four .game-body {
   font-size: .95em;
 }
 
-/* 上下家同时出的牌：左牌位 / 右牌位 */
+/* 上下家同时出的牌：左牌位 / 右牌位（贴近左右对手） */
 .ai-table-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: .3em;
   width: 100%;
-  max-width: 420px;
+  max-width: 100%;   /* 宽屏下左右牌位拉满，贴近各自对手 */
   min-height: 0;
+}
+/* 左右牌位（上家/下家）：绝对定位到牌桌垂直正中，正好对齐左右对手所在高度，
+   出牌就出现在出牌人正前方。之前左右牌位挤在中心列顶部，与居中显示的对手不对齐 */
+.ai-table-row--sides {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;   /* 不挡住底下正在操作的牌/按钮 */
+}
+/* 顶部牌位（对家）：留在文档流，紧跟在状态条下方——对家区正下方 */
+.ai-table-row--top {
+  justify-content: center;
 }
 .play-slot {
   display: flex;
@@ -518,11 +533,17 @@ body:not(.game-page--four) .play-slot--top { display: none; }
   font-size: 1.15em;
 }
 .play-actions .btn--pass {
-  background: rgba(255,255,255,.18);
+  background: rgba(20, 50, 36, .92);   /* 深绿底加深：老人看得更清、更好点 */
   color: #fff;
   box-shadow: none;
+  border: 2px solid rgba(255,255,255,.55);
 }
-.play-actions .btn--pass:hover { background: rgba(255,255,255,.3); }
+.play-actions .btn--pass:hover { background: rgba(20, 50, 36, .98); }
+.play-actions .btn--pass:disabled {
+  background: rgba(20, 50, 36, .55);   /* 禁用时也保持可见（不再是近乎透明的浅色） */
+  color: rgba(255,255,255,.65);
+  border-color: rgba(255,255,255,.3);
+}
 .play-actions .btn--confirm {
   background: var(--accent);
   color: #3A2400;
@@ -921,4 +942,25 @@ body:not(.game-page--four) .play-slot--top { display: none; }
   .opponent-zone--top .opponent-name { font-size: .68em; }
   .opponent-zone--top .opponent-count { font-size: .68em; padding: .02em .4em; }
   .play-slot--top .play-slot__cards .poker-card { width: 34px; height: 49px; }
+}
+
+/* 宽屏低高度（横屏/小窗）：桌面更舒展，牌更大，左右对手牌贴近各自 */
+@media (min-width: 1024px) and (max-height: 660px) {
+  .game-body {
+    grid-template-columns: minmax(140px, 1fr) minmax(360px, 2fr) minmax(140px, 1fr);
+    gap: .35em;
+    padding: .4em .7em .5em;
+  }
+  /* 左右对手区：牌背横排、空间更大 */
+  .opponent-zone { padding: .35em .5em; }
+  .opponent-cards { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: .1em; margin-top: .2em; max-width: 90%; }
+  .opponent-cards .poker-card { width: 24px; height: 35px; margin-top: 0; margin-left: -18px; }
+  .opponent-cards .poker-card:first-child { margin-left: 0; }
+  /* 桌面中央：左右牌位贴近左右对手，玩家牌靠下（自己面前） */
+  .center-zone { justify-content: flex-start; gap: .3em; }
+  .center-cards { min-height: 72px; margin-top: auto; }
+  .center-cards .poker-card { width: 48px; height: 69px; }
+  .ai-table-row { max-width: 100%; }
+  /* 玩家手牌更大：牌宽上限提升靠 fitHand，这里保证容器高度充分 */
+  .player-hand { min-height: calc(var(--fs) * 4.4); }
 }

@@ -78,6 +78,24 @@
       </div>
     </section>
 
+    <section class="settings-group" aria-label="拖选牌设置">
+      <div class="settings-group__title">🃏 选牌方式</div>
+      <div class="card">
+        <div class="settings-row">
+          <div>
+            <div class="settings-row__label">长按拖选
+              <span class="settings-row__hint">按住鼠标左键在牌上拖过，就能一次选中多张想要的牌</span>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="dragSwitch" checked>
+            <span class="slider"></span>
+            <span class="visually-hidden">长按拖选开关</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
     <section class="settings-group" aria-label="电脑难度">
       <div class="settings-group__title">🎮 电脑难度</div>
       <div class="card">
@@ -189,6 +207,13 @@
     });
     document.getElementById('voiceTest').addEventListener('click', function () {
       DDZSpeak.speak('您听到声音了，说明语音是开着的。欢迎来学斗地主！');
+    });
+
+    // 长按拖选开关（存 ddz_dragselect，默认开启）
+    var dragSwitch = document.getElementById('dragSwitch');
+    dragSwitch.checked = DDZStorage.get('dragselect', true);
+    dragSwitch.addEventListener('change', function () {
+      DDZStorage.set('dragselect', dragSwitch.checked);
     });
 
     // 学习进度

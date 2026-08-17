@@ -529,6 +529,7 @@
 
   // rank 数组 → 展示文字，如 "对子 · 8" "顺子 · 3-7"
   // 炸弹会标注张数（如 "炸弹 · 6张 8"），两副牌时更清楚
+  // ranks 可能是降序（game 的 ranksSorted）或升序，起点取最小值
   function describe(ranks, nDeck) {
     var parsed = parseCards(ranks, nDeck);
     if (!parsed) return '不合法的出牌';
@@ -537,15 +538,15 @@
     if (parsed.type === 'bomb' && parsed.len > 4) {
       return '炸弹 · ' + parsed.len + '张 ' + label;
     }
+    // 起点 = 最高点 − 连续组数 + 1（连对/飞机/顺子的起点只从「连续主体」算，
+    // 不被三带/飞机的翅膀杂牌干扰——否则 [888,999,4,5] 会显示成「4 到 9」）
     switch (parsed.type) {
       case 'straight':
-        return '顺子 ' + RANK_LABEL[ranks[0]] + ' 到 ' + label;
       case 'straight_pair':
-        return '连对 ' + RANK_LABEL[ranks[0]] + ' 到 ' + label;
       case 'plane_pure':
       case 'plane_one':
       case 'plane_pair':
-        return name + ' ' + RANK_LABEL[ranks[0]] + ' 到 ' + label;
+        return name + ' ' + RANK_LABEL[parsed.mainRank - parsed.len + 1] + ' 到 ' + label;
       default:
         return name + ' · ' + label;
     }

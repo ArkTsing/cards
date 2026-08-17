@@ -59,15 +59,15 @@
     <!-- 桌面中央 -->
     <section class="center-zone">
       <div class="center-zone__status" id="statusText" role="status" aria-live="polite">准备开始…</div>
-      <div class="center-cards" id="centerCards"></div>
       <!-- 上下家出的牌同时显示在牌桌上；四人局顶部座位0的牌显示在顶牌位 -->
-      <div class="ai-table-row">
+      <!-- 顺序：状态条 → 顶部牌位(对家) → 左右牌位(上家/下家) → 玩家自己的牌(最下方) -->
+      <div class="ai-table-row ai-table-row--top">
         <div class="play-slot play-slot--top" id="playSlot0">
           <span class="play-slot__tag" id="playTag0" hidden></span>
           <div class="play-slot__cards" id="playCards0"></div>
         </div>
       </div>
-      <div class="ai-table-row">
+      <div class="ai-table-row ai-table-row--sides">
         <div class="play-slot play-slot--left" id="playSlot1">
           <span class="play-slot__tag" id="playTag1" hidden></span>
           <div class="play-slot__cards" id="playCards1"></div>
@@ -77,6 +77,7 @@
           <div class="play-slot__cards" id="playCards2"></div>
         </div>
       </div>
+      <div class="center-cards" id="centerCards"></div>
     </section>
 
     <!-- 右对手（电脑3 老王） -->
@@ -197,11 +198,19 @@
           elLeftRole = $('oppLeftRole'), elRightRole = $('oppRightRole'),
           elTopRole = $('oppTopRole'),
           elOppLeft = $('oppLeft'), elOppRight = $('oppRight'), elOppTop = $('oppTop'),
-          elPlaySlots = [
-            { seat: 0, elCards: $('playCards0'), elTag: $('playTag0') },
-            { seat: 1, elCards: $('playCards1'), elTag: $('playTag1') },
-            { seat: 2, elCards: $('playCards2'), elTag: $('playTag2') }
-          ];
+          // 屏幕牌位（seat → DOM）：3人局 [左=seat0, 右=seat1]；4人局 [顶=seat0, 左=seat1, 右=seat2]
+          elPlaySlots = function () {
+            return players === 4
+              ? [
+                  { seat: 0, elCards: $('playCards0'), elTag: $('playTag0') },
+                  { seat: 1, elCards: $('playCards1'), elTag: $('playTag1') },
+                  { seat: 2, elCards: $('playCards2'), elTag: $('playTag2') }
+                ]
+              : [
+                  { seat: 0, elCards: $('playCards1'), elTag: $('playTag1') },
+                  { seat: 1, elCards: $('playCards2'), elTag: $('playTag2') }
+                ];
+          };
 
       /* ---------- 节奏控制：语音播完 + 最短停顿，才走下一步 ---------- */
       // 保证"前一句话没说完，后一句话不会抢着出来"
@@ -317,6 +326,24 @@
         }
       }
 
+      // 底牌揭晓动画：底牌逐张"翻出"（Web Animations API，尊重减少动态效果）
+      function animateBottomReveal() {
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var backs = elBottom.querySelectorAll('.poker-card');
+        backs.forEach(function (el, i) {
+          if (typeof el.animate !== 'function') return;
+          if (reduce) {
+            el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, delay: i * 60, fill: 'backwards', easing: 'ease-out' });
+          } else {
+            el.animate(
+              [{ transform: 'translateY(-16px) scale(.7) rotateY(90deg)', opacity: 0 },
+               { transform: 'none', opacity: 1 }],
+              { duration: 380, delay: 120 + i * 90, fill: 'backwards', easing: 'ease-out' }
+            );
+          }
+        });
+      }
+
       /* ---------- 渲染 ---------- */
       function updateAll() {
         var st = G.getState(game);
@@ -330,21 +357,22 @@
         elBombChip.hidden = st.bombs === 0;
         if (st.bombs > 0) elBombChip.textContent = '💣 ×' + st.bombs;
 
-        // 电脑手牌（牌背）+ 张数：左/右恒定，顶部仅 4 人局
-        UI.renderBacks(elLeftCards, st.hands[0].length);
-        UI.renderBacks(elRightCards, st.hands[1].length);
-        elLeftCount.textContent = st.hands[0].length + ' 张';
-        elRightCount.textContent = st.hands[1].length + ' 张';
+        // 电脑手牌（牌背）+ 张数：按屏幕座位映射（4人局 左=1 右=2 顶=0）
+        // 张数先更新（数据来自 st.hands 实时数组，出牌后立刻减少），再渲染牌背
+        var leftSeat = players === 4 ? 1 : 0;
+        var rightSeat = players === 4 ? 2 : 1;
+        elLeftCount.textContent = st.hands[leftSeat].length + ' 张';
+        elRightCount.textContent = st.hands[rightSeat].length + ' 张';
+        UI.renderBacks(elLeftCards, st.hands[leftSeat].length);
+        UI.renderBacks(elRightCards, st.hands[rightSeat].length);
         if (players === 4 && elTopCards) {
-          UI.renderBacks(elTopCards, st.hands[0].length); // 座位0=顶部对家
           elTopCount.textContent = st.hands[0].length + ' 张';
+          UI.renderBacks(elTopCards, st.hands[0].length); // 顶部=座位0
           elTopRole.innerHTML = roleText(st.roles[0]);
           elOppTop.classList.toggle('is-turn', st.phase === 'playing' && st.currentPlayer === 0);
         }
 
-        // 角色标签（3 人局左=0 右=1；4 人局左=1 右=2，顶部=0）
-        var leftSeat = players === 4 ? 1 : 0;
-        var rightSeat = players === 4 ? 2 : 1;
+        // 角色标签
         elLeftRole.innerHTML = roleText(st.roles[leftSeat]);
         elRightRole.innerHTML = roleText(st.roles[rightSeat]);
         elPlayerRole.innerHTML = roleText(st.roles[humanSeat]);
@@ -361,22 +389,28 @@
         // 桌面中央：各家出的牌同时显示（顶部/左/右牌位），您出的牌在正中
         renderAiSlots(st);
 
-        // 底牌条（屏幕最顶端）
+        // 底牌条（屏幕最顶端）：只在"地主已确定"（离开叫分阶段）后显示，
+        // 首次显示时播放翻牌动画，提示地主多拿了几张牌
         if (st.phase !== 'bidding' && st.landlord !== -1) {
-          elBottomBar.hidden = false;
-          elBottom.innerHTML = '';
-          st.bottom.forEach(function (c) {
-            elBottom.appendChild(UI.cardEl(c, {}));
-          });
+          if (elBottomBar.hidden) {
+            elBottomBar.hidden = false;
+            elBottom.innerHTML = '';
+            st.bottom.forEach(function (c) {
+              elBottom.appendChild(UI.cardEl(c, {}));
+            });
+            // 揭晓动画：底牌逐张翻出
+            animateBottomReveal();
+          }
         } else {
           elBottomBar.hidden = true;
         }
 
-        // 出牌按钮状态 + 显隐：仅轮到玩家出牌且不在思考时显示操作按钮
+        // 出牌按钮状态 + 显隐：轮到玩家时，选中牌 或 需要压牌（可"不要"）才显示操作栏
         var isMyTurn = st.phase === 'playing' && st.currentPlayer === humanSeat;
         if (elPlayerZone) elPlayerZone.classList.toggle('is-myturn', isMyTurn);   // 自己回合亮框
         // 轮到玩家时解除可能的思考卡死，保证按钮出现且可点
         if (isMyTurn && thinking) thinking = false;
+        // 操作按钮：自己回合才显示
         var showActions = isMyTurn && !thinking;
         elPlayActions.hidden = !showActions;
         if (elPlayerZone) elPlayerZone.classList.toggle('actions-hidden', !showActions);
@@ -403,10 +437,8 @@
       // 各 AI 座位刚出的牌，同时显示在牌桌上（顶部/左/右牌位）
       // 座位2（您自己）的牌显示在正中 centerCards
       function renderAiSlots(st) {
-        var aiSeats = [];
-        for (var s = 0; s < players; s++) if (s !== humanSeat) aiSeats.push(s);
         // 屏幕牌位：3 人局 [左=seat0, 右=seat1]；4 人局 [顶=seat0, 左=seat1, 右=seat2]
-        elPlaySlots.forEach(function (slot) {
+        elPlaySlots().forEach(function (slot) {
           var lp = st.lastPlays && st.lastPlays[slot.seat];
           if (st.phase === 'playing' && lp) {
             if (lp.parsed) {
@@ -429,10 +461,8 @@
           }
         });
         // 顶部牌位仅 4 人局显示
-        if (players !== 4 && elPlaySlots[0]) {
-          elPlaySlots[0].elCards.innerHTML = '';
-          elPlaySlots[0].elTag.hidden = true;
-        }
+        var topSlot = players === 4 ? null : $('playCards0');
+        if (topSlot) { topSlot.innerHTML = ''; $('playTag0').hidden = true; }
 
         // 正中央：显示您自己最近出的牌（电脑的牌在各自牌位上）
         var myLp = st.lastPlays && st.lastPlays[humanSeat];
@@ -473,7 +503,7 @@
          transform 全部内联写入，任何浏览器都生效 */
       var FAN_DESIRED_MAX_ANGLE = 7;   // 理想扇面最大边缘角(度)，空间足够时用
       var FAN_MIN_SLIVER = 6;          // 每张牌最少露出的宽度(px)
-      var FAN_MAX_SLIVER = 28;         // 每张牌最多露出宽度(px)
+      var FAN_MAX_SLIVER = 34;         // 每张牌最多露出宽度(px)——放大手牌，老人更容易看清点数
 
       // 根据可用宽高 + 牌数 + 字号，算出每张牌的 宽/高/露边/步进角
       // availH：手牌容器可用的最大高度（矮屏时限制牌高，保证手牌区永远可见）
@@ -481,8 +511,8 @@
       // 牌多/屏窄时牌略小但每张看得清，牌少/屏宽时仍是满宽大牌。
       function fitHand(n, availW, availH, fs) {
         fs = fs || 22;
-        // 牌宽上限：宽屏用大牌（封顶96px），字号大也相应放大；窄屏自动收敛
-        var maxW = Math.min(96, Math.max(66, fs * 3.0));
+        // 牌宽上限：宽屏用大牌（封顶120px，尽量放大自己的牌），字号大也相应放大；窄屏自动收敛
+        var maxW = Math.min(120, Math.max(66, fs * 3.2));
         var minW = Math.max(30, Math.min(52, fs * 1.6));
         // 高度约束：手牌容器高度 = 牌高*1.35 + 字号*1.6，反推最大允许牌高
         var maxH = (availH - fs * 1.6) / 1.35;
@@ -533,6 +563,41 @@
       //   - 选中牌左侧的所有牌：整体向左平移（牌与牌相对间距不变）
       //   - 选中牌右侧的所有牌：整体向右平移
       //   即"整体让开"（刚体平移），不逐张衰减，避免挤在一起
+
+      // 长按拖选：按住鼠标左键，在牌上拖过即选中经过的牌（设置里可关闭）
+      // 用事件委托：mousedown 在牌上按下进入拖选，mouseover 经过的牌被选中
+      var dragSelecting = false;
+      function bindDragSelect() {
+        if (!DDZStorage.get('dragselect', true)) return;   // 设置里关闭则不启用
+        var handEl = elPlayerHand;
+        if (handEl.__dragBound) return;
+        handEl.__dragBound = true;
+        handEl.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;               // 仅左键
+          if (!game || game.phase !== 'playing') return;
+          var t = e.target;
+          var cardEl = t.closest ? t.closest('.poker-card') : null;
+          if (!cardEl) return;
+          dragSelecting = true;
+          e.preventDefault();
+        });
+        handEl.addEventListener('mouseover', function (e) {
+          if (!dragSelecting) return;
+          if (!game || game.phase !== 'playing') return;
+          var t = e.target;
+          var cardEl = t.closest ? t.closest('.poker-card') : null;
+          if (!cardEl) return;
+          var uid = cardEl.dataset.uid;
+          if (uid && !selected[uid]) {
+            selected[uid] = true;
+            cardEl.classList.add('selected');
+            layoutCards();
+            updatePlayButton();
+          }
+        });
+        window.addEventListener('mouseup', function () { dragSelecting = false; });
+      }
+
       function layoutCards() {
         var els = elPlayerHand.querySelectorAll('.poker-card');
         var n = els.length;
@@ -743,6 +808,8 @@
           frag.appendChild(el);
         });
         elPlayerHand.appendChild(frag);
+        // 长按拖选：按住鼠标左键在牌上拖过，选中经过的牌（设置里可关）
+        bindDragSelect();
         layoutCards();
         updatePlayButton();
       }
@@ -805,17 +872,16 @@
         if (!isPlayerTurn()) {
           elBtnPlay.disabled = true;
           elBtnPass.disabled = true;
+          elBtnPlay.hidden = true;
           return;
         }
         var st = G.getState(game);
         var freePlay = !st.lastPlay || st.lastPlaySeat === humanSeat || st.lastPlaySeat === -1;
-        if (freePlay) {
-          elBtnPlay.disabled = !hasSelection();
-          elBtnPass.disabled = true;
-        } else {
-          elBtnPlay.disabled = !hasSelection();
-          elBtnPass.disabled = false;
-        }
+        var sel = hasSelection();
+        // 需求 #6：选好牌后「出牌」按钮才出现；没选牌时不显示，避免老人误点
+        elBtnPlay.hidden = !sel;
+        elBtnPlay.disabled = !sel;
+        elBtnPass.disabled = freePlay;
       }
 
       /* ---------- 玩家出牌 ---------- */

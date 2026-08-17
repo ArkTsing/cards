@@ -60,15 +60,15 @@
 
     <section class="center-zone">
       <div class="center-zone__status" id="statusText" role="status" aria-live="polite">准备开始…</div>
-      <div class="center-cards" id="centerCards"></div>
       <!-- 各家同时出的牌；四人局顶部座位0的牌显示在顶牌位 -->
-      <div class="ai-table-row">
+      <!-- 顺序：状态条 → 顶部牌位(对家) → 左右牌位(上家/下家) → 玩家自己的牌(最下方) -->
+      <div class="ai-table-row ai-table-row--top">
         <div class="play-slot play-slot--top" id="playSlot0">
           <span class="play-slot__tag" id="playTag0" hidden></span>
           <div class="play-slot__cards" id="playCards0"></div>
         </div>
       </div>
-      <div class="ai-table-row">
+      <div class="ai-table-row ai-table-row--sides">
         <div class="play-slot play-slot--left" id="playSlot1">
           <span class="play-slot__tag" id="playTag1" hidden></span>
           <div class="play-slot__cards" id="playCards1"></div>
@@ -78,6 +78,7 @@
           <div class="play-slot__cards" id="playCards2"></div>
         </div>
       </div>
+      <div class="center-cards" id="centerCards"></div>
     </section>
 
     <section class="opponent-zone opponent-zone--right" id="oppRight">
@@ -188,11 +189,19 @@
           elLeftRole = $('oppLeftRole'), elRightRole = $('oppRightRole'),
           elTopRole = $('oppTopRole'),
           elOppLeft = $('oppLeft'), elOppRight = $('oppRight'), elOppTop = $('oppTop'),
-          elPlaySlots = [
-            { seat: 0, elCards: $('playCards0'), elTag: $('playTag0') },
-            { seat: 1, elCards: $('playCards1'), elTag: $('playTag1') },
-            { seat: 2, elCards: $('playCards2'), elTag: $('playTag2') }
-          ];
+          // 屏幕牌位（seat → DOM）：3人局 [左=seat0, 右=seat1]；4人局 [顶=seat0, 左=seat1, 右=seat2]
+          elPlaySlots = function () {
+            return players === 4
+              ? [
+                  { seat: 0, elCards: $('playCards0'), elTag: $('playTag0') },
+                  { seat: 1, elCards: $('playCards1'), elTag: $('playTag1') },
+                  { seat: 2, elCards: $('playCards2'), elTag: $('playTag2') }
+                ]
+              : [
+                  { seat: 0, elCards: $('playCards1'), elTag: $('playTag1') },
+                  { seat: 1, elCards: $('playCards2'), elTag: $('playTag2') }
+                ];
+          };
 
       // 老人友好：AI 出手刻意放慢，留足看清牌的时间
       var AI_BID_DELAY = 1700;
@@ -279,6 +288,24 @@
         }
       }
 
+      // 底牌揭晓动画：地主确定后，底牌逐张"翻出"
+      function animateBottomReveal() {
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var backs = elBottom.querySelectorAll('.poker-card');
+        backs.forEach(function (el, i) {
+          if (typeof el.animate !== 'function') return;
+          if (reduce) {
+            el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, delay: i * 60, fill: 'backwards', easing: 'ease-out' });
+          } else {
+            el.animate(
+              [{ transform: 'translateY(-16px) scale(.7) rotateY(90deg)', opacity: 0 },
+               { transform: 'none', opacity: 1 }],
+              { duration: 380, delay: 120 + i * 90, fill: 'backwards', easing: 'ease-out' }
+            );
+          }
+        });
+      }
+
       function newGame() {
         players = Number(DDZStorage.get('players', 3)) === 4 ? 4 : 3;
         nDeck = DDZStorage.get('deck', 1);
@@ -309,18 +336,18 @@
         elMulti.textContent = st.multiplier;
         elBombChip.hidden = st.bombs === 0;
         if (st.bombs > 0) elBombChip.textContent = '💣 ×' + st.bombs;
-        UI.renderBacks(elLeftCards, st.hands[0].length);
-        UI.renderBacks(elRightCards, st.hands[1].length);
-        elLeftCount.textContent = st.hands[0].length + ' 张';
-        elRightCount.textContent = st.hands[1].length + ' 张';
+        var leftSeat = players === 4 ? 1 : 0;
+        var rightSeat = players === 4 ? 2 : 1;
+        elLeftCount.textContent = st.hands[leftSeat].length + ' 张';
+        elRightCount.textContent = st.hands[rightSeat].length + ' 张';
+        UI.renderBacks(elLeftCards, st.hands[leftSeat].length);
+        UI.renderBacks(elRightCards, st.hands[rightSeat].length);
         if (players === 4 && elTopCards) {
-          UI.renderBacks(elTopCards, st.hands[0].length);
           elTopCount.textContent = st.hands[0].length + ' 张';
+          UI.renderBacks(elTopCards, st.hands[0].length);
           elTopRole.innerHTML = roleText(st.roles[0]);
           elOppTop.classList.toggle('is-turn', st.phase === 'playing' && st.currentPlayer === 0);
         }
-        var leftSeat = players === 4 ? 1 : 0;
-        var rightSeat = players === 4 ? 2 : 1;
         elLeftRole.innerHTML = roleText(st.roles[leftSeat]);
         elRightRole.innerHTML = roleText(st.roles[rightSeat]);
         elPlayerRole.innerHTML = roleText(st.roles[humanSeat]);
@@ -331,9 +358,12 @@
         renderPlayerHand(humanHand);
         renderAiSlots(st);
         if (st.phase !== 'bidding' && st.landlord !== -1) {
-          elBottomBar.hidden = false;
-          elBottom.innerHTML = '';
-          st.bottom.forEach(function (c) { elBottom.appendChild(UI.cardEl(c, {})); });
+          if (elBottomBar.hidden) {
+            elBottomBar.hidden = false;
+            elBottom.innerHTML = '';
+            st.bottom.forEach(function (c) { elBottom.appendChild(UI.cardEl(c, {})); });
+            animateBottomReveal();
+          }
         } else {
           elBottomBar.hidden = true;
         }
@@ -341,7 +371,7 @@
         if (elPlayerZone) elPlayerZone.classList.toggle('is-myturn', isMyTurn);   // 自己回合亮框
         // 轮到玩家时解除可能的思考卡死，保证按钮出现且可点
         if (isMyTurn && thinking) thinking = false;
-        var showActions = isMyTurn && !thinking;
+        var showActions = isMyTurn && !thinking;   // 操作按钮：自己回合才显示
         elPlayActions.hidden = !showActions;
         if (elPlayerZone) elPlayerZone.classList.toggle('actions-hidden', !showActions);
         if (showActions) enablePlayButtons(st);
@@ -355,7 +385,8 @@
 
       // 各家（电脑）同时显示出的牌；您出的牌在正中
       function renderAiSlots(st) {
-        elPlaySlots.forEach(function (slot) {
+        // 屏幕牌位：3 人局 [左=seat0, 右=seat1]；4 人局 [顶=seat0, 左=seat1, 右=seat2]
+        elPlaySlots().forEach(function (slot) {
           var lp = st.lastPlays && st.lastPlays[slot.seat];
           if (st.phase === 'playing' && lp) {
             if (lp.parsed) {
@@ -377,9 +408,11 @@
             slot.elTag.hidden = true;
           }
         });
-        if (players !== 4 && elPlaySlots[0]) {
-          elPlaySlots[0].elCards.innerHTML = '';
-          elPlaySlots[0].elTag.hidden = true;
+        // 顶部牌位仅 4 人局显示
+        if (players !== 4) {
+          var topCards = $('playCards0');
+          if (topCards) topCards.innerHTML = '';
+          $('playTag0').hidden = true;
         }
         var myLp = st.lastPlays && st.lastPlays[humanSeat];
         if (st.phase === 'playing' && myLp && myLp.parsed) {
@@ -403,11 +436,11 @@
          实测容器宽度 → 反算牌宽/露边/角度，任意屏宽都不超屏 */
       var FAN_DESIRED_MAX_ANGLE = 7;
       var FAN_MIN_SLIVER = 6;          // 每张牌最少露出的宽度(px)
-      var FAN_MAX_SLIVER = 28;         // 每张牌最多露出宽度(px)
+      var FAN_MAX_SLIVER = 34;         // 每张牌最多露出宽度(px)——放大手牌，老人更容易看清点数
 
       function fitHand(n, availW, availH, fs) {
         fs = fs || 22;
-        var maxW = Math.min(96, Math.max(66, fs * 3.0));
+        var maxW = Math.min(120, Math.max(66, fs * 3.2));
         var minW = Math.max(30, Math.min(52, fs * 1.6));
         // 高度约束：手牌容器高度 = 牌高*1.35 + 字号*1.6，反推最大允许牌高
         var maxH = (availH - fs * 1.6) / 1.35;
@@ -456,6 +489,40 @@
       //   - 选中牌左侧的所有牌：整体向左平移（牌与牌相对间距不变）
       //   - 选中牌右侧的所有牌：整体向右平移
       //   即"整体让开"（刚体平移），不逐张衰减，避免挤在一起
+
+      // 长按拖选：按住鼠标左键，在牌上拖过即选中经过的牌（设置里可关闭）
+      var dragSelecting = false;
+      function bindDragSelect() {
+        if (!DDZStorage.get('dragselect', true)) return;   // 设置里关闭则不启用
+        var handEl = elPlayerHand;
+        if (handEl.__dragBound) return;
+        handEl.__dragBound = true;
+        handEl.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          if (!game || game.phase !== 'playing') return;
+          var t = e.target;
+          var cardEl = t.closest ? t.closest('.poker-card') : null;
+          if (!cardEl) return;
+          dragSelecting = true;
+          e.preventDefault();
+        });
+        handEl.addEventListener('mouseover', function (e) {
+          if (!dragSelecting) return;
+          if (!game || game.phase !== 'playing') return;
+          var t = e.target;
+          var cardEl = t.closest ? t.closest('.poker-card') : null;
+          if (!cardEl) return;
+          var uid = cardEl.dataset.uid;
+          if (uid && !selected[uid]) {
+            selected[uid] = true;
+            cardEl.classList.add('selected');
+            layoutCards();
+            updatePlayButton();
+          }
+        });
+        window.addEventListener('mouseup', function () { dragSelecting = false; });
+      }
+
       function layoutCards() {
         var els = elPlayerHand.querySelectorAll('.poker-card');
         var n = els.length;
@@ -651,6 +718,8 @@
           frag.appendChild(el);
         });
         elPlayerHand.appendChild(frag);
+        // 长按拖选：按住鼠标左键在牌上拖过，选中经过的牌（设置里可关）
+        bindDragSelect();
         layoutCards();
         updatePlayButton();
       }
@@ -693,10 +762,13 @@
         updatePlayButton();
       }
       function updatePlayButton() {
-        if (!isPlayerTurn()) { elBtnPlay.disabled = true; elBtnPass.disabled = true; return; }
+        if (!isPlayerTurn()) { elBtnPlay.disabled = true; elBtnPass.disabled = true; elBtnPlay.hidden = true; return; }
         var st = G.getState(game);
         var freePlay = !st.lastPlay || st.lastPlaySeat === humanSeat || st.lastPlaySeat === -1;
-        elBtnPlay.disabled = !hasSelection();
+        var sel = hasSelection();
+        // 需求 #6：选好牌后「出牌」按钮才出现；没选牌时不显示
+        elBtnPlay.hidden = !sel;
+        elBtnPlay.disabled = !sel;
         elBtnPass.disabled = !freePlay;
       }
 

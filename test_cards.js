@@ -114,6 +114,11 @@ console.log('== describe ==');
 t('描述对子', () => assert.ok(C.describe([8, 8]).includes('对子')));
 t('描述顺子', () => assert.ok(C.describe([3, 4, 5, 6, 7]).includes('顺子')));
 t('描述火箭', () => assert.ok(C.describe([16, 17]).includes('火箭')));
+// v0.4: 降序数组（game 内部 ranksSorted）也要显示正确起点
+t('降序顺子 7,6,5,4,3 → 顺子3到7', () => assert.ok(C.describe([7, 6, 5, 4, 3]).includes('3 到 7')));
+t('降序连对 7,7,6,6,5,5 → 连对5到7', () => assert.ok(C.describe([7, 7, 6, 6, 5, 5]).includes('5 到 7')));
+t('降序飞机 7,7,7,6,6,6 → 飞机 6 到 7', () => assert.ok(C.describe([7, 7, 7, 6, 6, 6]).includes('6 到 7')));
+t('顺子起点取最小', () => assert.ok(C.describe([9, 8, 7, 6, 5]).includes('5 到 9')));
 
 console.log('\n结果: ' + passed + ' 通过, ' + failed + ' 失败');
 process.exit(failed > 0 ? 1 : 0);

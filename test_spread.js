@@ -7,8 +7,8 @@
 
 function fitHand(n, availW, availH, fs) {
   fs = fs || 22;
-  var FAN_DESIRED_MAX_ANGLE = 7, FAN_MIN_SLIVER = 6, FAN_MAX_SLIVER = 28;
-  var maxW = Math.min(96, Math.max(66, fs * 3.0));
+  var FAN_DESIRED_MAX_ANGLE = 7, FAN_MIN_SLIVER = 6, FAN_MAX_SLIVER = 34;
+  var maxW = Math.min(120, Math.max(66, fs * 3.2));
   var minW = Math.max(30, Math.min(52, fs * 1.6));
   var maxH = (availH - fs * 1.6) / 1.35;
   if (maxH < 30) maxH = 30;

@@ -8,7 +8,7 @@
    仅 HTTPS / localhost 可用；本地 file:// 打开时不会注册，无影响。
    ========================================================================== */
 'use strict';
-var VERSION = 'ddz-cache-v3';
+var VERSION = 'ddz-cache-v4';
 // 匹配任意层级下的 assets/cards/、js/、css/（兼容根目录与子路径部署，如 GitHub Pages 项目页）
 function isStatic(pathname) {
   return /(?:^|\/)assets\/cards\//.test(pathname) ||
